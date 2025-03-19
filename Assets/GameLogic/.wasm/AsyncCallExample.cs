@@ -1,9 +1,12 @@
 using System.Runtime.InteropServices.JavaScript;
+using WebGLMultiThreaded;
 
-public class AsyncCallExample
+internal partial class AsyncCallExample
 {
     private static readonly GameLogic Instance = new GameLogic();
 
+    // we need to output json because current wasm source generation doesn't support arbitrary objects
+    // see issue for adding a way to easily marshall objects: https://github.com/dotnet/runtime/issues/77784
     [JSExport]
-    public static State GameLogicUpdate_AsyncCallExample(float time) => Instance.Update(time);
+    public static string Update(float time) => StateSerialization.Serialize(Instance.Update(time));
 }
