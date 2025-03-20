@@ -12,34 +12,39 @@ mergeInto(LibraryManager.library, {
         worker.onmessage = e => {
           const command = e.data.command;
           const requestId = e.data.requestId;
-
-          if (command === "initializing") {
-            // TODO: still deciding if we'll hook up request id to unity. until then, just need to remove pending request
-            // if we do hook it up, we'll need to send a corresponding reponse to unity
-            delete window.gameLogic_asynccall.pendingRequests[requestId];
-            return;
-          }
-
-          if (command !== "response" && command !== "error") {
-            console.error("Unknown command: ", command);
-            return;
-          }
         
+          // in some sense, there's no need to track this here, since we link them together unity-side
+          // however, we need to get the right callbacks called, meaning we need to track request ids here, as well.
+          // a hypothetical alternative is to pass them via GameLogic_Initialize_AsyncCall, but this current way feels safer.
           const callbacks = window.gameLogic_asynccall.pendingRequests[requestId];
           delete window.gameLogic_asynccall.pendingRequests[requestId];
           if (callbacks == null) {
             console.error("GameLogic response has no corresponding request.");
+            return;
           }
-        
           // the corresponding unity component will then link everything back together
           // const { success, failure } = callbacks; // apparently not supported. these vars just wont exist.
           const success = callbacks.success;
           const failure = callbacks.failure;
-          if (command === "error") {
-            this.sendResponse(failure, e.data.error);
-          } else {
-            this.sendResponse(success, e.data.result);
+
+          // aka the worker isn't ready to handle requests. instead of keeping them queued, we throw them out.
+          if (command === "initializing") {
+            // TODO: this will kinda spam logs, so either a more structured error or another `initializing` callback would be better.
+            this.sendResponse(failure, requestId, "Game logic worker not ready yet.");
+            return;
           }
+
+          if (command === "error") {
+            this.sendResponse(failure, requestId, e.data.error);
+            return;
+          }
+
+          if (command === "response") {
+            this.sendResponse(success, requestId, e.data.result);
+            return;
+          }
+
+          console.error("Unknown command: ", command);
         };
 
         this.worker = worker;
@@ -52,13 +57,14 @@ mergeInto(LibraryManager.library, {
         const requestId = this.nextRequestId++;
         this.pendingRequests[requestId] = { success, failure };
         this.worker.postMessage({ ...request, requestId });
+        return requestId;
       }
       
-      sendResponse(callback, response) {
+      sendResponse(callback, requestId, response) {
         const len = lengthBytesUTF8(response) + 1;
         const buffer = _malloc(len);
         stringToUTF8(response, buffer, len);
-        {{{ makeDynCall('vi', 'callback') }}} (buffer);
+        {{{ makeDynCall('vii', 'callback') }}} (requestId, buffer);
         // NOTE: it's not clear if there's a risk of use-after-free here, if the callback stores the data (closure, etc.)
         // since .NET strings are utf16, I feel like there's a decent chance the string the callback gets
         // is another (converted) copy, but the docs aren't clear on this.
@@ -75,7 +81,7 @@ mergeInto(LibraryManager.library, {
   // still, we could accept the game object name as a parameter if desired.
   // also note that the async event example uses SendMessage, so take a look there for an example on using SendMessage!
   GameLogic_Update_AsyncCall: function (time, success, failure) {
-    window.gameLogic_asynccall.sendRequest({ command: "update", time }, success, failure);
+    return window.gameLogic_asynccall.sendRequest({ command: "update", time }, success, failure);
   },
 });
 
