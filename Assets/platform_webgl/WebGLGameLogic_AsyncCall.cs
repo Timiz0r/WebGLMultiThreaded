@@ -48,9 +48,6 @@ public class WebGLGameLogic_AsyncCall : MonoBehaviour
 
     void Update()
     {
-        // TODO: in browser debugging, there appear to be a few hundred orphaned requests initially.
-        // since the issue doesn't persist (aka isn't intermittent, just happens at beginning), not a high pri issue.
-        // i suspect the web worker, or more likely .net, might not be fully ready when we start sending messages.
         GameLogic_Update_AsyncCall(Time.time, UpdateSuccess, UpdateFailure);
 
         // first update from game logic hasnt finished yet

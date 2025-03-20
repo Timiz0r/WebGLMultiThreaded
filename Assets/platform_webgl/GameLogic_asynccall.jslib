@@ -10,11 +10,18 @@ mergeInto(LibraryManager.library, {
       constructor() {
         const worker = new Worker('gamelogic/wwwroot/gameLogicWorker_asynccall.js', { type: "module" });
         worker.onmessage = e => {
-          if (e.data.command !== "response" && e.data.command !== "error") { return; }
-        
+          const command = e.data.command;
           const requestId = e.data.requestId;
-          if (requestId == null) {
-            console.error("GameLogic response has no corresponding request id.");
+
+          if (command === "initializing") {
+            // TODO: still deciding if we'll hook up request id to unity. until then, just need to remove pending request
+            // if we do hook it up, we'll need to send a corresponding reponse to unity
+            delete window.gameLogic_asynccall.pendingRequests[requestId];
+            return;
+          }
+
+          if (command !== "response" && command !== "error") {
+            console.error("Unknown command: ", command);
             return;
           }
         
@@ -28,7 +35,7 @@ mergeInto(LibraryManager.library, {
           // const { success, failure } = callbacks; // apparently not supported. these vars just wont exist.
           const success = callbacks.success;
           const failure = callbacks.failure;
-          if (e.data.command === "error") {
+          if (command === "error") {
             this.sendResponse(failure, e.data.error);
           } else {
             this.sendResponse(success, e.data.result);
