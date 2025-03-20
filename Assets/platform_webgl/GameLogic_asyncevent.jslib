@@ -10,7 +10,14 @@ mergeInto(LibraryManager.library, {
       constructor () {
         const worker = new Worker('gamelogic/wwwroot/gameLogicWorker_asyncevent.js', { type: "module" });
         worker.onmessage = e => {
-          this.handleEvent(e.data.name, e.data.data);
+          if (e.data.command === "error") {
+            console.error(e.data.error);
+            return;
+          }
+
+          if (e.data.command !== "stateChanged") return;
+
+          this.handleEvent(e.data.data);
         };
 
         this.worker = worker;
@@ -21,13 +28,13 @@ mergeInto(LibraryManager.library, {
       sendRequest(request) {
         this.worker.postMessage(request);
       }
-      handleEvent(name, data) {
+      handleEvent(data) {
         if (!this.eventListenerGameObjectName) {
           console.error("GameLogic has no registered event listener.");
           return;
         }
       
-        MyGameInstance.SendMessage(this.eventListenerGameObjectName, name, data);
+        SendMessage(this.eventListenerGameObjectName, "StateChanged", data);
       }
     }();
   },
@@ -41,7 +48,7 @@ mergeInto(LibraryManager.library, {
   // which we would then store
   // another interesting take involving custom-rolled rpc: https://codewithajay.com/porting-my-unity-game-to-web/
   GameLogic_AsyncEventListener: function (gameObjectName) {
-    window.gameLogic_asyncevent.eventListenerGameObjectName = gameObjectName;
+    window.gameLogic_asyncevent.eventListenerGameObjectName = UTF8ToString(gameObjectName);
   }
 });
 

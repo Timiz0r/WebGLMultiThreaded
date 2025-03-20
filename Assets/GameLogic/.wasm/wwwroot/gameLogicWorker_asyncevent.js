@@ -9,7 +9,7 @@ try {
     const { setModuleImports, getAssemblyExports, getConfig } = await dotnet.create();
 
     setModuleImports("AsyncEventExample", {
-        event: (name, data) => sendEvent(name, data)
+        StateChanged: data => sendEvent(data)
     });
 
     const config = getConfig();
@@ -27,8 +27,9 @@ onmessage = e => {
 
         switch (e.data.command) {
             case "update":
-                const time = Number(e.data.time);
+                const time = e.data.time;
                 assemblyExports.AsyncEventExample.Update(time);
+                break;
             default:
                 throw new Error("Unknown command: " + e.data.command);
         }
@@ -38,9 +39,9 @@ onmessage = e => {
     }
 };
 
-function sendEvent(name, data) {
-    postMessage({ name, data });
+function sendEvent(data) {
+    postMessage({ command: "stateChanged", data });
 }
 function sendError(err) {
-    sendEvent("error", err);
+    postMessage({ command: "error", error: err.message });
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Threading;
 
 namespace WebGLMultiThreaded
@@ -14,8 +15,12 @@ namespace WebGLMultiThreaded
         private float nextTime = 0;
         private readonly State state = new();
 
-        public event Action<int> CounterChanged;
-        public event Action<string> MessageChanged;
+        // not using conventional EventHandler since we can't serialize the concept of a sender anyway, nor need it
+        // a past version went with multiple events/delegates,
+        // but, due to plumbing needed in other places, it didn't really scale in terms of maintainability.
+        //
+        // 
+        public event Action<UntypedStateChange> StateChanged;
 
         public State Update(float time)
         {
@@ -30,23 +35,35 @@ namespace WebGLMultiThreaded
             //some expensive operation
             Thread.Sleep(500);
 
-            state.Counter += 3;
-            CounterChanged?.Invoke(state.Counter);
-
-            state.Message = $"It is currently {DateTimeOffset.UtcNow}.";
-            MessageChanged?.Invoke(state.Message);
+            ChangeState(nameof(State.Counter), state.Counter, () => state.Counter += 3);
+            ChangeState(nameof(State.Message), state.Message, () => state.Message = $"It is currently {DateTimeOffset.UtcNow}.");
 
             state.Sequence++;
 
             return state;
         }
+
+        // this can probably be made a slight bit safer with expressions to keep these parameters consistent with each other
+        // though, as long as calls are naturally written, human error should be rare. also, automated testing.
+        private void ChangeState<T>(string target, T oldValue, Func<T> setter) where T : IConvertible
+        {
+            UntypedStateChange eventData = new UntypedStateChange()
+            {
+                Target =  target,
+                OldValue = oldValue?.ToString(CultureInfo.InvariantCulture),
+                NewValue = setter().ToString(CultureInfo.InvariantCulture)
+            };
+
+            StateChanged?.Invoke(eventData);
+        }
     }
 
+    // NOTE: would prefer immutable properties.
+    // however, for this example code, using JsonUtility to deserialize json string, so they need to be public fields
+    // not that there arent hacks.
+    [Serializable] // fun fact: JsonUtility deserialized to this without this attribute
     public class State
     {
-        // NOTE: would prefer immutable properties.
-        // however, for this example code, using JsonUtility to deserialize json string, so they need to be public fields
-        // not that there arent hacks.
         public int Counter;
         public string Message;
 
@@ -54,5 +71,42 @@ namespace WebGLMultiThreaded
         // previous `Update` versions would return null if no changes, but this made implementation obnoxious.
         // so would not recommend returning null from `Update`.
         public int Sequence;
+    }
+
+    public class StateChange<T> where T : IConvertible
+    {
+        public string Target { get;}
+        public T OldValue { get; }
+        public T NewValue { get; }
+
+        public StateChange(string target, T oldValue, T newValue)
+        {
+            Target = target;
+            OldValue = oldValue;
+            NewValue = newValue;
+        }
+    }
+    
+    // needed for all the fun serialization layers we need to get through
+    // especially JsonUtility (where other JSON libraries could otherwise work with `StateChange<T>`)
+    [Serializable]
+    public class UntypedStateChange
+    {
+        public string Target;
+        public string OldValue;
+        public string NewValue;
+
+        // meant to be called via Unity
+        public StateChange<T> ConvertFrom<T>() where T : IConvertible
+        {
+            return new StateChange<T>(Target, convert(OldValue), convert(NewValue));
+
+            // String's IConvertible implementations implicitly implemented
+            T convert(IConvertible value)
+                => (T)value.ToType(typeof(T), CultureInfo.InvariantCulture);
+        }
+
+        // TODO: won't do it for example code, but additional overloads for complex objects and converting between json
+        // would be handy.
     }
 }

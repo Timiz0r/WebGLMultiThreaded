@@ -18,10 +18,33 @@ public class WebGLGameLogic_AsyncEvent : MonoBehaviour
     [DllImport("__Internal")]
     private static extern void GameLogic_AsyncEventListener(string gameObjectName);
 
-    private void CounterChanged(int counter)
+    private void StateChanged(string json)
     {
-        var obj = transform.Find("Counter");
-        obj.GetComponent<TextMeshPro>().text = counter.ToString();
+        UntypedStateChange untypedStateChange = (UntypedStateChange)JsonUtility.FromJson(json, typeof(UntypedStateChange));
+        switch (untypedStateChange.Target)
+        {
+            case "Counter":
+            {
+                StateChange<int> stateChange = untypedStateChange.ConvertFrom<int>();
+                var obj = transform.Find("Counter");
+                obj.GetComponent<TextMeshPro>().text = stateChange.NewValue.ToString();
+                break;
+            }
+
+            case "Message":
+            {
+                StateChange<string> stateChange = untypedStateChange.ConvertFrom<string>();
+                var obj = transform.Find("Message");
+                obj.GetComponent<TextMeshPro>().text = stateChange.NewValue;
+                break;
+            }
+
+            default:
+                Debug.LogError($"Unknown state change: {json}");
+                break;
+        }
+
+
     }
 
     private void MessageChanged(string message)

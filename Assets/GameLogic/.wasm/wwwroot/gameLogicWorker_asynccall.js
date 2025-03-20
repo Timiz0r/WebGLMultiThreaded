@@ -15,12 +15,12 @@ catch (err) {
 }
 
 onmessage = e => {
-    const baseResponse = { command: "response", requestId: e.data.requestId };
+    const baseResponse = { requestId: e.data.requestId };
     function sendResponse(result) {
-        postMessage({ ...baseResponse, result });
+        postMessage({ ...baseResponse, command: "response", result });
     }
     function sendError(err) {
-        postMessage({ ...baseResponse, error: err.message });
+        postMessage({ ...baseResponse, command: "error", error: err.message });
     }
 
     try {
@@ -30,7 +30,7 @@ onmessage = e => {
 
         switch (e.data.command) {
             case "update":
-                const time = Number(e.data.time);
+                const time = e.data.time;
                 const result = assemblyExports.AsyncCallExample.Update(time);
                 return sendResponse(result)
             default:

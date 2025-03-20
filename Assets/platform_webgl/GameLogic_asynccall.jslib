@@ -10,7 +10,7 @@ mergeInto(LibraryManager.library, {
       constructor() {
         const worker = new Worker('gamelogic/wwwroot/gameLogicWorker_asynccall.js', { type: "module" });
         worker.onmessage = e => {
-          if (e.data.command !== "response") { return; }
+          if (e.data.command !== "response" && e.data.command !== "error") { return; }
         
           const requestId = e.data.requestId;
           if (requestId == null) {
@@ -28,7 +28,7 @@ mergeInto(LibraryManager.library, {
           // const { success, failure } = callbacks; // apparently not supported. these vars just wont exist.
           const success = callbacks.success;
           const failure = callbacks.failure;
-          if (e.data.error) {
+          if (e.data.command === "error") {
             this.sendResponse(failure, e.data.error);
           } else {
             this.sendResponse(success, e.data.result);
