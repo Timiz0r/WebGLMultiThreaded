@@ -59,14 +59,21 @@ mergeInto(LibraryManager.library, {
         const buffer = _malloc(len);
         stringToUTF8(response, buffer, len);
         {{{ makeDynCall('vi', 'callback') }}} (buffer);
+        // NOTE: it's not clear if there's a risk of use-after-free here, if the callback stores the data (closure, etc.)
+        // since .NET strings are utf16, I feel like there's a decent chance the string the callback gets
+        // is another (converted) copy, but the docs aren't clear on this.
+        //
+        // also, from the docs: If the string is a return value, then the IL2CPP runtime automatically frees up the memory for you.
+        // so we need to do it manually
         _free(buffer);
       }
     }();
   },
 
-  // we could hypothetically use Unity's feature to call c# methods: MyGameInstance.SendMessage('MyGameObject', 'MyFunction', 'MyString');
+  // we could hypothetically use Unity's feature to call c# methods: SendMessage('MyGameObject', 'MyFunction', 'MyString');
   // however, in order to not rely on a specific game object name, we're opting for a callback.
   // still, we could accept the game object name as a parameter if desired.
+  // also note that the async event example uses SendMessage, so take a look there for an example on using SendMessage!
   GameLogic_Update_AsyncCall: function (time, success, failure) {
     window.gameLogic_asynccall.sendRequest({ command: "update", time }, success, failure);
   },

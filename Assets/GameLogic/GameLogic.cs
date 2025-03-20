@@ -106,7 +106,7 @@ namespace WebGLMultiThreaded
                 => (T)value.ToType(typeof(T), CultureInfo.InvariantCulture);
         }
 
-        // TODO: won't do it for example code, but additional overloads for complex objects and converting between json
+        // TODO-ish: won't do it for example code, but additional overloads for complex objects and converting between json
         // would be handy.
     }
 }

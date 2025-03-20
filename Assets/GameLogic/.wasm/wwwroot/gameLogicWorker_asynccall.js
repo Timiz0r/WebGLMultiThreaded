@@ -29,7 +29,6 @@ catch (err) {
 }
 
 onmessage = e => {
-    console.log("wat ", e.data.requestId);
     const baseResponse = { requestId: e.data.requestId };
     function sendResponse(result) {
         postMessage({ ...baseResponse, command: "response", result });
