@@ -19,10 +19,12 @@ namespace WebGLMultiThreaded
 
         public State Update(float time)
         {
-            // could also pump through if the state is actually updated. depends on use case, so not worrying about it in this example code.
+            // using sequence to track state changes, to reduce workload in Unity-side update.
+            // however, this implementation technically does unnecessary serialization work.
+            // this can be reduced with a Result { State, Changed: bool } sort of type if needed.
+            // certainly other ways to track state changes (such as event example).
+            // or could always not track changes if one's scenario prefers always updating.
             if (time < nextTime) return state;
-            // NOTE: still mulling over the best implementation for this kind of logic, but not important for this example
-            // (in particular mulling over what to do if processing a tick takes more than TimePerTick).
             // just mentioning this because it may be unwise to emulate this kind of logic.
             nextTime = time + TimePerTick;
 
@@ -35,6 +37,8 @@ namespace WebGLMultiThreaded
             state.Message = $"It is currently {DateTimeOffset.UtcNow}.";
             MessageChanged.Invoke(state.Message);
 
+            state.Sequence++;
+
             return state;
         }
     }
@@ -45,5 +49,9 @@ namespace WebGLMultiThreaded
         // however, for this example code, using JsonUtility to deserialize json string, so they need public setters.
         public int Counter { get; set; }
         public string Message { get; set;}
+        // meant to allow change tracking
+        // previous `Update` versions would return null if no changes, but this made implementation obnoxious.
+        // so would not recommend returning null from `Update`.
+        public int Sequence;
     }
 }
