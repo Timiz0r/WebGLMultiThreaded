@@ -6,7 +6,12 @@ let assemblyExports = null;
 let startupError = undefined;
 
 try {
-    const { getAssemblyExports, getConfig } = await dotnet.create();
+    const { setModuleImports, getAssemblyExports, getConfig } = await dotnet.create();
+
+    setModuleImports("AsyncEventExample", {
+        event: (name, data) => sendEvent(name, data)
+    });
+
     const config = getConfig();
     assemblyExports = await getAssemblyExports(config.mainAssemblyName);
 }
@@ -15,14 +20,6 @@ catch (err) {
 }
 
 onmessage = e => {
-    const baseResponse = { command: "response", requestId: e.data.requestId };
-    function sendResponse(result) {
-        postMessage({ ...baseResponse, result });
-    }
-    function sendError(err) {
-        postMessage({ ...baseResponse, error: err.message });
-    }
-
     try {
         if (!assemblyExports) {
             throw new Error(startupError || "worker exports not loaded");
@@ -31,8 +28,7 @@ onmessage = e => {
         switch (e.data.command) {
             case "update":
                 const time = Number(e.data.time);
-                const result = assemblyExports.AsyncCallExample.Update(time);
-                return sendResponse(result)
+                assemblyExports.AsyncEventExample.Update(time);
             default:
                 throw new Error("Unknown command: " + e.data.command);
         }
@@ -41,3 +37,10 @@ onmessage = e => {
         sendError(err)
     }
 };
+
+function sendEvent(name, data) {
+    postMessage({ name, data });
+}
+function sendError(err) {
+    sendEvent("error", err);
+}
