@@ -42,7 +42,6 @@ public class WebGLGameLogic_AsyncCall : MonoBehaviour
 
     void Start()
     {
-        currentState = new() { Message = "State not yet updated.", Sequence = -1 };
         lastProcessedStateSequence = -1;
         GameLogic_Initialize_AsyncCall();
     }
@@ -54,14 +53,23 @@ public class WebGLGameLogic_AsyncCall : MonoBehaviour
         // i suspect the web worker, or more likely .net, might not be fully ready when we start sending messages.
         GameLogic_Update_AsyncCall(Time.time, UpdateSuccess, UpdateFailure);
 
+        // first update from game logic hasnt finished yet
+        if (currentState == null) return;
+
         // though, == might be a better check. currentState.Sequence not being monotonic would be weird, though.
         if (currentState.Sequence <= lastProcessedStateSequence) return;
         lastProcessedStateSequence = currentState.Sequence;
 
         Transform counter = transform.Find("Counter");
-        counter.GetComponent<TextMeshPro>().text = currentState.Counter.ToString();
+        if (counter != null)
+        {
+            counter.GetComponent<TextMeshPro>().text = currentState.Counter.ToString();
+        }
 
         Transform message = transform.Find("Message");
-        message.GetComponent<TextMeshPro>().text = currentState.Message;
+        if (message != null)
+        {
+            message.GetComponent<TextMeshPro>().text = currentState.Message;
+        }
     }
 }
