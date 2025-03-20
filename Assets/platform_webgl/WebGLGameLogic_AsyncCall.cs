@@ -33,7 +33,7 @@ public class WebGLGameLogic_AsyncCall : MonoBehaviour
         currentState = (State)JsonUtility.FromJson(stateJson, typeof(State));
     }
 
-    // TODO: see if we can provide this thru lambdas. if so, we'll leave UpdateSuccess in order to show both examples work.
+    // quick note: c# 10 gets lambda attributes! unity on c# 9 though.
     [MonoPInvokeCallback(typeof(Action<string>))]
     private static void UpdateFailure(string error)
     {
@@ -48,7 +48,10 @@ public class WebGLGameLogic_AsyncCall : MonoBehaviour
 
     void Update()
     {
-        GameLogic_Update_AsyncCall(Time.time, UpdateSuccess, UpdateFailure);
+        GameLogic_Update_AsyncCall(
+            Time.time,
+            [MonoPInvokeCallback(typeof(Action<string>))] (stateJson) => currentState = (State)JsonUtility.FromJson(stateJson, typeof(State)),
+            UpdateFailure);
 
         // first update from game logic hasnt finished yet
         if (currentState == null) return;
