@@ -7,6 +7,9 @@ using WebGLMultiThreaded;
 
 public class WebGLGameLogic_AsyncEvent : MonoBehaviour
 {
+    [DllImport("__Internal")]
+    private static extern void GameLogic_Initialize_AsyncEvent();
+
     // NOTE: it's also hypothetically possible to pump the "request id" to unity (returned here, passed to callbacks),
     // then hook them up to async-style stuff like coroutines or async-await
     [DllImport("__Internal")]
@@ -34,6 +37,9 @@ public class WebGLGameLogic_AsyncEvent : MonoBehaviour
 
     void Start()
     {
+        GameLogic_Initialize_AsyncEvent();
+        // these are separate in case GameLogic_AsyncEventListener is expected to be re-callable
+        // of course, they can be combined if this will not happen.
         GameLogic_AsyncEventListener(name);
     }
 

@@ -16,6 +16,8 @@ public class WebGLGameLogic_AsyncCall : MonoBehaviour
     [DllImport("__Internal")]
     private static extern void GameLogic_Update_AsyncCall(float time, Action<string> success, Action<string> failure);
 
+    [DllImport("__Internal")]
+    private static extern void GameLogic_Initialize_AsyncCall();
     [MonoPInvokeCallback(typeof(Action<string>))]
     private static void UpdateSuccess(string stateJson)
     {
@@ -32,6 +34,7 @@ public class WebGLGameLogic_AsyncCall : MonoBehaviour
     void Start()
     {
         currentState = new() { Message = "State not yet updated." };
+        GameLogic_Initialize_AsyncCall();
     }
 
     void Update()

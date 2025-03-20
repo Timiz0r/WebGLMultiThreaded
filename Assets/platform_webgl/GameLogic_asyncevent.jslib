@@ -1,35 +1,48 @@
-
-const worker = new Worker('gameLogicWorker_asyncevent.js', { type: "module" });
-
-let eventListenerGameObjectName = undefined;
-
-worker.onmessage = e => {
-  handleEvent(e.data.name, e.data.data);
-};
-
 mergeInto(LibraryManager.library, {
-  GameLogic_Update_AsyncEvent: (time) => {
-    sendRequest({ command: "update", time });
+  // a previous attempt tried to initialize the worker before calling `mergeInto`, but `window` doesn't exist at that point
+  // instead, we need to delay initialization
+
+  // NOTE: unity seems to drop functions that are defined with arrow functions, hence normal `function(){}`
+  GameLogic_Initialize_AsyncEvent: function () {
+    if (window.gameLogic_asyncevent) return;
+
+    window.gameLogic_asyncevent = new class {
+      constructor () {
+        const worker = new Worker('gamelogic/wwwroot/gameLogicWorker_asyncevent.js', { type: "module" });
+        worker.onmessage = e => {
+          this.handleEvent(e.data.name, e.data.data);
+        };
+
+        this.worker = worker;
+        this.eventListenerGameObjectName = undefined;
+      }
+
+      // helpers. turns out we need to define them here too
+      sendRequest(request) {
+        this.worker.postMessage(request);
+      }
+      handleEvent(name, data) {
+        if (!this.eventListenerGameObjectName) {
+          console.error("GameLogic has no registered event listener.");
+          return;
+        }
+      
+        MyGameInstance.SendMessage(this.eventListenerGameObjectName, name, data);
+      }
+    }();
+  },
+
+  GameLogic_Update_AsyncEvent: function (time) {
+    window.gameLogic_asyncevent.sendRequest({ command: "update", time });
   },
 
   // unlike the "asynccall" example, we'll actually directly call c# methods
   // in the scenario where there are many events, the alternative would be for this function to take a bunch of callbacks,
   // which we would then store
-  GameLogic_AsyncEventListener: (gameObjectName) => {
-    eventListenerGameObjectName = gameObjectName;
+  // another interesting take involving custom-rolled rpc: https://codewithajay.com/porting-my-unity-game-to-web/
+  GameLogic_AsyncEventListener: function (gameObjectName) {
+    window.gameLogic_asyncevent.eventListenerGameObjectName = gameObjectName;
   }
 });
 
 // no need for functions here, but left in place to allow easier comparison to "asynccall" example.
-function sendRequest(request) {
-  worker.postMessage(request);
-}
-
-function handleEvent(name, data) {
-  if (!eventListenerGameObjectName) {
-    console.error("GameLogic has no registered event listener.");
-    return;
-  }
-
-  MyGameInstance.SendMessage(eventListenerGameObjectName, name, data);
-}
