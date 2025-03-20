@@ -9,6 +9,7 @@ using WebGLMultiThreaded;
 // Use the overload that takes a JsonTypeInfo or JsonSerializerContext, or make sure all of the required types are preserved.(IL2026)
 //
 // so we use source gen to build a SourceGenerationContext. multiple JsonSerializable attributes can be added as needed.
+[JsonSourceGenerationOptions(IncludeFields = true)]
 [JsonSerializable(typeof(State))]
 internal partial class SourceGenerationContext : JsonSerializerContext
 {
