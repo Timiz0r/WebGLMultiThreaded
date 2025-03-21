@@ -43,9 +43,9 @@ onmessage = e => {
         }
 
         switch (e.data.command) {
-            case "update":
-                const time = e.data.time;
-                const result = assemblyExports.OperationRunnerInterop.Foobar(time);
+            case "Foobar":
+                const num = e.data.num;
+                const result = assemblyExports.OperationRunnerInterop.Foobar(num);
                 return sendResponse(result)
             default:
                 throw new Error("Unknown command: " + e.data.command);

@@ -41,12 +41,12 @@ public class FoobarComponent : MonoBehaviour
 
         Transform foobar = transform.parent;
 
-        if (foobar.Find("Foo") is Transform foo)
+        if (foobar?.Find("Foo") is Transform foo)
         {
             foo.GetComponent<TextMeshPro>().text = result.Foo.ToString();
         }
 
-        if (foobar.Find("Bar") is Transform bar)
+        if (foobar?.Find("Bar") is Transform bar)
         {
             bar.GetComponent<TextMeshPro>().text = result.Bar;
         }

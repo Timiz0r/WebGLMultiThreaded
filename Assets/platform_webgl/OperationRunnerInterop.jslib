@@ -80,8 +80,8 @@ mergeInto(LibraryManager.library, {
   // however, in order to not rely on a specific game object name, we're opting for a callback.
   // still, we could accept the game object name as a parameter if desired.
   // also note that the async event example uses SendMessage, so take a look there for an example on using SendMessage!
-  OperationRunnerInterop_Foobar: function (time, success, failure) {
-    return window.operationRunnerInterop.sendRequest({ command: "update", time }, success, failure);
+  OperationRunnerInterop_Foobar: function (num, success, failure) {
+    return window.operationRunnerInterop.sendRequest({ command: "Foobar", num }, success, failure);
   },
 });
 
