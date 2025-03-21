@@ -23,11 +23,11 @@ public class FoobarComponent : MonoBehaviour
 
     void Start()
     {
-        // this call ensures multiple initialization isn't possible, but 
+        // incidentally, this function's implementation ensures multiple initialization isn't possible
         OperationRunnerInterop_Initialize();
     }
 
-    async Awaitable Update()
+    async Awaitable OnMouseDown()
     {
         OperationResponse<FoobarResult, string> response = await foobarOperation.Launch(
             (success, failure) => OperationRunnerInterop_Foobar(rng.Next(100), success: success, failure: failure));
@@ -37,18 +37,16 @@ public class FoobarComponent : MonoBehaviour
             Debug.LogError($"Failed to run operation: {response.Error}");
             return;
         }
-
-
         FoobarResult result = response.Result;
 
-        Transform foo = transform.Find("Foo");
-        if (foo != null)
+        Transform foobar = transform.parent;
+
+        if (foobar.Find("Foo") is Transform foo)
         {
             foo.GetComponent<TextMeshPro>().text = result.Foo.ToString();
         }
 
-        Transform bar = transform.Find("Bar");
-        if (bar != null)
+        if (foobar.Find("Bar") is Transform bar)
         {
             bar.GetComponent<TextMeshPro>().text = result.Bar;
         }
