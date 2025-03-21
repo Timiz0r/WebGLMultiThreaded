@@ -1,5 +1,6 @@
 import { dotnet } from './_framework/dotnet.js'
 
+// largely based off of...
 // https://github.com/ilonatommy/reactWithDotnetOnWebWorker/blob/master/react/src/client.js
 
 let assemblyExports = null;

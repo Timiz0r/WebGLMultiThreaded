@@ -16,8 +16,8 @@ namespace WebGLMultiThreaded
             };
         }
 
-        // TODO: an async-await example would be handy
-        // MEGA TODO: a web worker pool would also be interesting. though, I suspect an oss solution already exists.
+        // FUTURE: an async-await example would be handy
+        // FUTURE: a web worker pool would also be interesting. though, I suspect an oss solution already exists.
         //    implementing sounds fun, though!
     }
 

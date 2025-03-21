@@ -16,10 +16,9 @@ namespace WebGLMultiThreaded
         private readonly State state = new();
 
         // not using conventional EventHandler since we can't serialize the concept of a sender anyway, nor need it
-        // a past version went with multiple events/delegates,
-        // but, due to plumbing needed in other places, it didn't really scale in terms of maintainability.
         //
-        // 
+        // a past version went with multiple events/delegates per piece of state,
+        // but, due to amount of plumbing needed in other places, it didn't really scale in terms of maintainability.
         public event Action<UntypedStateChange> StateChanged;
 
         public void Update(float time)
