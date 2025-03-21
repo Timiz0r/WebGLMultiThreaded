@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- slows development due to long build times, but of course performs better. and is a bit larger. -->
+    <!-- <RunAOTCompilation>true</RunAOTCompilation> -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>full</TrimMode>
+
+    <ProjectRoot>$(MSBuildThisFileDirectory.TrimEnd('\').TrimEnd('/'))</ProjectRoot>
+    <WebGLPlatformDir>$(ProjectRoot)\..</WebGLPlatformDir>
+    <AssetsDir>$(WebGLPlatformDir)\..</AssetsDir>
+    <GameLogicDir>$(AssetsDir)\GameLogic</GameLogicDir>
+    <OperationsDir>$(AssetsDir)\Operations</OperationsDir>
+
+    <PublishDir>$(AssetsDir)\..\build\webgl\interop</PublishDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- note that the cs files in this project are auto included -->
+    
+    <Compile Include="$(GameLogicDir)\**\*.cs" />
+    <Compile Include="$(OperationsDir)\**\*.cs" />
+  </ItemGroup>
+</Project>
