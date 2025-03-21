@@ -10,17 +10,14 @@ using WebGLMultiThreaded;
 //
 // so we use source gen to build a SourceGenerationContext. multiple JsonSerializable attributes can be added as needed.
 [JsonSourceGenerationOptions(IncludeFields = true)]
-[JsonSerializable(typeof(State))]
+[JsonSerializable(typeof(FoobarResult))]
 [JsonSerializable(typeof(UntypedStateChange))]
 internal partial class SourceGenerationContext : JsonSerializerContext
 {
 }
 
-internal static class StateSerialization
+internal static class InteropSerialization
 {
-    public static string Serialize(State state)
-        => JsonSerializer.Serialize(state, typeof(State), SourceGenerationContext.Default);
-
-    public static string SerializeChange(UntypedStateChange stateChange)
-        => JsonSerializer.Serialize(stateChange, typeof(UntypedStateChange), SourceGenerationContext.Default);
+    public static string Serialize<T>(T obj)
+        => JsonSerializer.Serialize(obj, typeof(T), SourceGenerationContext.Default);
 }

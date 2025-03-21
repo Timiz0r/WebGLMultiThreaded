@@ -6,7 +6,7 @@ internal partial class GameLogicInterop
     private static readonly GameLogic Instance = new GameLogic();
     static GameLogicInterop()
     {
-        Instance.StateChanged += eventData => StateChanged(StateSerialization.SerializeChange(eventData));
+        Instance.StateChanged += eventData => StateChanged(InteropSerialization.Serialize(eventData));
     }
 
     [JSExport]

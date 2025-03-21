@@ -30,7 +30,7 @@ mergeInto(LibraryManager.library, {
           // aka the worker isn't ready to handle requests. instead of keeping them queued, we throw them out.
           if (command === "initializing") {
             // TODO: this will kinda spam logs, so either a more structured error or another `initializing` callback would be better.
-            this.sendResponse(failure, requestId, "Game logic worker not ready yet.");
+            // this.sendResponse(failure, requestId, "Game logic worker not ready yet.");
             return;
           }
 
