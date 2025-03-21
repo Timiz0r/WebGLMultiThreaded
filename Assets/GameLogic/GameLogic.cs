@@ -24,11 +24,6 @@ namespace WebGLMultiThreaded
 
         public void Update(float time)
         {
-            // using sequence to track state changes, to reduce workload in Unity-side update.
-            // however, this implementation technically does unnecessary serialization work.
-            // this can be reduced with a Result { State, Changed: bool } sort of type if needed.
-            // certainly other ways to track state changes (such as event example).
-            // or could always not track changes if one's scenario prefers always updating.
             if (time < nextTime) return;
             nextTime = time + TimePerTick;
 
@@ -37,8 +32,6 @@ namespace WebGLMultiThreaded
 
             ChangeState(nameof(State.Counter), state.Counter, () => state.Counter += 3);
             ChangeState(nameof(State.Message), state.Message, () => state.Message = $"It is currently {DateTimeOffset.UtcNow}.");
-
-            state.Sequence++;
         }
 
         // this can probably be made a slight bit safer with expressions to keep these parameters consistent with each other
@@ -57,18 +50,13 @@ namespace WebGLMultiThreaded
     }
 
     // NOTE: would prefer immutable properties.
-    // however, for this example code, using JsonUtility to deserialize json string, so they need to be public fields
+    // however, for this example code, using JsonUtility to deserialize json string, so they need to be public fields.
     // not that there arent hacks.
     [Serializable] // fun fact: JsonUtility deserialized to this without this attribute
     public class State
     {
         public int Counter;
         public string Message;
-
-        // meant to allow change tracking
-        // previous `Update` versions would return null if no changes, but this made implementation obnoxious.
-        // so would not recommend returning null from `Update`.
-        public int Sequence;
     }
 
     public class StateChange<T> where T : IConvertible
