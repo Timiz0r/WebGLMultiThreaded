@@ -22,14 +22,14 @@ namespace WebGLMultiThreaded
         // 
         public event Action<UntypedStateChange> StateChanged;
 
-        public State Update(float time)
+        public void Update(float time)
         {
             // using sequence to track state changes, to reduce workload in Unity-side update.
             // however, this implementation technically does unnecessary serialization work.
             // this can be reduced with a Result { State, Changed: bool } sort of type if needed.
             // certainly other ways to track state changes (such as event example).
             // or could always not track changes if one's scenario prefers always updating.
-            if (time < nextTime) return state;
+            if (time < nextTime) return;
             nextTime = time + TimePerTick;
 
             //some expensive operation
@@ -39,8 +39,6 @@ namespace WebGLMultiThreaded
             ChangeState(nameof(State.Message), state.Message, () => state.Message = $"It is currently {DateTimeOffset.UtcNow}.");
 
             state.Sequence++;
-
-            return state;
         }
 
         // this can probably be made a slight bit safer with expressions to keep these parameters consistent with each other
