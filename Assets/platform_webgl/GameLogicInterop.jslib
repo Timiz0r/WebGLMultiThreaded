@@ -3,12 +3,12 @@ mergeInto(LibraryManager.library, {
   // instead, we need to delay initialization
 
   // NOTE: unity seems to drop functions that are defined with arrow functions, hence normal `function(){}`
-  GameLogic_Initialize_AsyncEvent: function () {
-    if (window.gameLogic_asyncevent) return;
+  GameLogicInterop_Initialize: function () {
+    if (window.gameLogicInterop) return;
 
-    window.gameLogic_asyncevent = new class {
+    window.gameLogicInterop = new class {
       constructor () {
-        const worker = new Worker('gamelogic/wwwroot/gameLogicWorker_asyncevent.js', { type: "module" });
+        const worker = new Worker('interop/wwwroot/gameLogicInteropWorker.js', { type: "module" });
         worker.onmessage = e => {
           if (e.data.command === "error") {
             console.error(e.data.error);
@@ -39,16 +39,16 @@ mergeInto(LibraryManager.library, {
     }();
   },
 
-  GameLogic_Update_AsyncEvent: function (time) {
-    window.gameLogic_asyncevent.sendRequest({ command: "update", time });
+  GameLogicInterop_Update: function (time) {
+    window.gameLogicInterop.sendRequest({ command: "update", time });
   },
 
   // unlike the "asynccall" example, we'll actually directly call c# methods
   // in the scenario where there are many events, the alternative would be for this function to take a bunch of callbacks,
   // which we would then store
   // another interesting take involving custom-rolled rpc: https://codewithajay.com/porting-my-unity-game-to-web/
-  GameLogic_AsyncEventListener: function (gameObjectName) {
-    window.gameLogic_asyncevent.eventListenerGameObjectName = UTF8ToString(gameObjectName);
+  GameLogicInterop_RegisterEventListener: function (gameObjectName) {
+    window.gameLogicInterop.eventListenerGameObjectName = UTF8ToString(gameObjectName);
   }
 });
 

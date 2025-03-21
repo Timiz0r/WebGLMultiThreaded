@@ -16,21 +16,21 @@ using UnityEngine;
 // the caller of Launch hooks them up to the request method.
 // the implementation here takes care of correlating request ids, invokes the deserialization callbacks, and returns the result
 // all of this is done with Unity Awaitables for proper Unity compatibility.
-public static class AwaitableRequestBuilder
+public static class OperationRequestBuilder
 {
     // instead of a two-step Create->Launch, we could just do it all in a Launch
     // opting for this to keep the callsite of Launch cleaner
-    public static AwaitableRequestBuilder<TResult, TError> Create<TResult, TError>(
+    public static OperationRequestBuilder<TResult, TError> Create<TResult, TError>(
         Func<string, TResult> success, Func<string, TError> failure) => new(success, failure);
 }
 
-public class AwaitableRequestResponse<TResult, TError>
+public class OperationResponse<TResult, TError>
 {
     public bool IsSuccess { get; }
     public TResult Result { get; }
     public TError Error { get; }
 
-    public AwaitableRequestResponse(bool isSuccess, TResult result, TError error)
+    public OperationResponse(bool isSuccess, TResult result, TError error)
     {
         IsSuccess = isSuccess;
         Result = result;
@@ -38,7 +38,7 @@ public class AwaitableRequestResponse<TResult, TError>
     }
 }
 
-public class AwaitableRequestBuilder<TResult, TError>
+public class OperationRequestBuilder<TResult, TError>
 {
     // NOTE: since (afaik) Awaitables are meant to be invoked only off main thread, not handling thread safety
     private static Dictionary<int, RequestContext> requests = new();
@@ -46,16 +46,16 @@ public class AwaitableRequestBuilder<TResult, TError>
     private readonly Func<string, TResult> successBuilder;
     private readonly Func<string, TError> failureBuilder;
 
-    public AwaitableRequestBuilder(Func<string, TResult> successBuilder, Func<string, TError> failureBuilder)
+    public OperationRequestBuilder(Func<string, TResult> successBuilder, Func<string, TError> failureBuilder)
     {
         this.successBuilder = successBuilder;
         this.failureBuilder = failureBuilder;
     }
 
-    public Awaitable<AwaitableRequestResponse<TResult, TError>> Launch(
+    public Awaitable<OperationResponse<TResult, TError>> Launch(
         Func<Action<int, string>, Action<int, string>, int> requestLauncher)
     {
-        AwaitableCompletionSource<AwaitableRequestResponse<TResult, TError>> completionSource = new();
+        AwaitableCompletionSource<OperationResponse<TResult, TError>> completionSource = new();
 
         int requestId = requestLauncher(Success, Failure);
         if (requests.ContainsKey(requestId))
@@ -110,6 +110,6 @@ public class AwaitableRequestBuilder<TResult, TError>
     }
 
     private record RequestContext(
-        AwaitableCompletionSource<AwaitableRequestResponse<TResult, TError>> CompletionSource,
-        AwaitableRequestBuilder<TResult, TError> Builder);
+        AwaitableCompletionSource<OperationResponse<TResult, TError>> CompletionSource,
+        OperationRequestBuilder<TResult, TError> Builder);
 }

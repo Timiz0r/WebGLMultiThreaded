@@ -1,11 +1,10 @@
-using System;
 using System.Runtime.InteropServices.JavaScript;
 using WebGLMultiThreaded;
 
-internal partial class AsyncEventExample
+internal partial class GameLogicInterop
 {
     private static readonly GameLogic Instance = new GameLogic();
-    static AsyncEventExample()
+    static GameLogicInterop()
     {
         Instance.StateChanged += eventData => StateChanged(StateSerialization.SerializeChange(eventData));
     }
@@ -14,6 +13,6 @@ internal partial class AsyncEventExample
     public static void Update(float time)
         => Instance.Update(time);
 
-    [JSImport("StateChanged", "AsyncEventExample")]
+    [JSImport("StateChanged", "GameLogic")]
     static partial void StateChanged(string stateChangeJson);
 }

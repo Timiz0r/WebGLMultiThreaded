@@ -8,7 +8,7 @@ let startupError = undefined;
 try {
     const { setModuleImports, getAssemblyExports, getConfig } = await dotnet.create();
 
-    setModuleImports("AsyncEventExample", {
+    setModuleImports("GameLogic", {
         StateChanged: data => sendEvent(data)
     });
 
@@ -28,7 +28,7 @@ onmessage = e => {
         switch (e.data.command) {
             case "update":
                 const time = e.data.time;
-                assemblyExports.AsyncEventExample.Update(time);
+                assemblyExports.GameLogicInterop.Update(time);
                 break;
             default:
                 throw new Error("Unknown command: " + e.data.command);

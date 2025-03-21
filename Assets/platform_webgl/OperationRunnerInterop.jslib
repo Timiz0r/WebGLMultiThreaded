@@ -3,23 +3,23 @@ mergeInto(LibraryManager.library, {
   // instead, we need to delay initialization
 
   // unity seems to drop functions that are defined with arrow functions, hence normal `function(){}`
-  GameLogic_Initialize_AsyncCall: function () {
-    if (window.gameLogic_asynccall) return;
+  OperationRunnerInterop_Initialize: function () {
+    if (window.operationRunnerInterop) return;
 
-    window.gameLogic_asynccall = new class {
+    window.operationRunnerInterop = new class {
       constructor() {
-        const worker = new Worker('gamelogic/wwwroot/gameLogicWorker_asynccall.js', { type: "module" });
+        const worker = new Worker('interop/wwwroot/operationRunnerInteropWorker.js', { type: "module" });
         worker.onmessage = e => {
           const command = e.data.command;
           const requestId = e.data.requestId;
         
           // in some sense, there's no need to track this here, since we link them together unity-side
           // however, we need to get the right callbacks called, meaning we need to track request ids here, as well.
-          // a hypothetical alternative is to pass them via GameLogic_Initialize_AsyncCall, but this current way feels safer.
-          const callbacks = window.gameLogic_asynccall.pendingRequests[requestId];
-          delete window.gameLogic_asynccall.pendingRequests[requestId];
+          // a hypothetical alternative is to pass them via OperationRunnerInterop_Initialize, but this current way feels safer.
+          const callbacks = window.operationRunnerInterop.pendingRequests[requestId];
+          delete window.operationRunnerInterop.pendingRequests[requestId];
           if (callbacks == null) {
-            console.error("GameLogic response has no corresponding request.");
+            console.error("Operation response has no corresponding request.");
             return;
           }
           // the corresponding unity component will then link everything back together
@@ -80,8 +80,8 @@ mergeInto(LibraryManager.library, {
   // however, in order to not rely on a specific game object name, we're opting for a callback.
   // still, we could accept the game object name as a parameter if desired.
   // also note that the async event example uses SendMessage, so take a look there for an example on using SendMessage!
-  GameLogic_Update_AsyncCall: function (time, success, failure) {
-    return window.gameLogic_asynccall.sendRequest({ command: "update", time }, success, failure);
+  OperationRunnerInterop_Foobar: function (time, success, failure) {
+    return window.operationRunnerInterop.sendRequest({ command: "update", time }, success, failure);
   },
 });
 

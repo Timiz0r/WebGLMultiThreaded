@@ -4,18 +4,18 @@ using TMPro;
 using UnityEngine;
 using WebGLMultiThreaded;
 
-
-public class WebGLGameLogic_AsyncCall : MonoBehaviour
+// TODO: we if we can come up with a design where multiple of these can be activated without issue
+public class OperationRunner : MonoBehaviour
 {
     private int lastProcessedStateSequence;
 
     [DllImport("__Internal")]
-    private static extern int GameLogic_Update_AsyncCall(float time, Action<int, string> success, Action<int, string> failure);
+    private static extern void OperationRunnerInterop_Initialize();
 
     [DllImport("__Internal")]
-    private static extern void GameLogic_Initialize_AsyncCall();
+    private static extern int OperationRunnerInterop_Foobar(float time, Action<int, string> success, Action<int, string> failure);
 
-    private static AwaitableRequestBuilder<State, string> gameLogicUpdater = AwaitableRequestBuilder.Create(
+    private static OperationRequestBuilder<State, string> operationRequest = OperationRequestBuilder.Create(
         success: stateJson => (State)JsonUtility.FromJson(stateJson, typeof(State)),
         failure: error => error
     );
@@ -23,18 +23,19 @@ public class WebGLGameLogic_AsyncCall : MonoBehaviour
     void Start()
     {
         lastProcessedStateSequence = -1;
-        GameLogic_Initialize_AsyncCall();
+        OperationRunnerInterop_Initialize();
     }
 
     async Awaitable Update()
     {
         // TODO: instead of both examples being for updating game logic, make this one's scenario running some long-running operation
-        AwaitableRequestResponse<State, string> response = await gameLogicUpdater.Launch(
-            (success, failure) => GameLogic_Update_AsyncCall(Time.time, success: success, failure: failure));
+        // then we can avoid the weird naming  gymnatics we're doing to disambiguate both
+        OperationResponse<State, string> response = await operationRequest.Launch(
+            (success, failure) => OperationRunnerInterop_Foobar(Time.time, success: success, failure: failure));
 
         if (!response.IsSuccess)
         {
-            Debug.LogError($"Failed to update game logic.: {response.Error}");
+            Debug.LogError($"Failed to run operation: {response.Error}");
             return;
         }
 

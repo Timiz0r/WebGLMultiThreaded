@@ -45,7 +45,7 @@ onmessage = e => {
         switch (e.data.command) {
             case "update":
                 const time = e.data.time;
-                const result = assemblyExports.AsyncCallExample.Update(time);
+                const result = assemblyExports.OperationRunnerInterop.Foobar(time);
                 return sendResponse(result)
             default:
                 throw new Error("Unknown command: " + e.data.command);
