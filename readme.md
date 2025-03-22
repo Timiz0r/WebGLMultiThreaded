@@ -47,6 +47,9 @@ making the process vastly simpler than what you are about to see.
 ## Building and running the example
 First, there is a project in `Assets/platform_webgl/.wasm` that needs to be `dotnet publish`ed.
 The project builds on .NET 9, though other versions perhaps work.
+Prerequisites include...
+* `sudo dotnet workload install wasm-tools`
+* `sudo dotnet workload install wasm-experimental`
 
 The Web build of the Unity project should be build to `build/webgl`.
 If choosing to build in a different folder, be sure to update where the `.wasm` project publishes to.
@@ -141,8 +144,19 @@ There are pretty ample comments that cover a lot of the implementation, as well 
 Of course, feel free to create an issue if something is broken/unclear/etc.
 
 ## Pain points
+How painful it is to implement does largely depend on how much effort one puts into design. Still...
+
+### Play mode
+As-is, play mode won't work, since play mode doesn't load JavaScript plugins
+(since the Web build isn't run in play mode, no matter which platform is selected).
+Making the game cross-platform is the way to solve it,
+but that still doesn't help with debugging and testing the WebGL build.
+The only way to do so is to `Build And Run`, which takes a rather long time if any code is changed.
+Rebuilds with just scene changes are quick enough, though.
+Also, non-AOT WASM builds are very quick.
+
 ### Debugging
-As mentioned above, play mode isn't a thing, so neither is debugging (in the modern sense).
+Since play mode isn't a thing, so neither is debugging (in the modern sense).
 
 Unity-side, debugging requires lots of console logging and rebuilds that take minutes even for small projects.
 This is mainly because we can't run or debug jslib stuff in play mode, and,
@@ -152,18 +166,44 @@ the pain should go away.
 
 C#/WASM-side, there is again no real debugging, requiring console logging.
 However, non-AOT rebuilds only take a handful of seconds and don't require Unity rebuilds, so iteration is pretty quick.
-This is handy, since, for the game logic example, there could be a lot of churn here.
+This is handy, since, for the game logic example, most churn should be there as compared to Unity.
+
+### Plumbing
+The end goal is `Game logic/long-running operations <-> Unity`
+(the WASM interop parts are technically shims, but they're luckily very light),
+but, in between these two, we have `WASM <-> Web Worker <-> jslib`.
+The WASM interop part is pretty light, so it's not much of a problem.
+The real complexity is in `Web Worker <-> jslib`, where all the message passing logic needs to be done.
+And there's the matter of serialization.
+
+Once again, with .NET WASM multi-threading, the Web Worker part should go away,
+removing the vast majority of the complexity, leaving fairly simple WASM and jslib shims.
+The serialization part would remain, though.
+
+As implemented in the event-like demonstration, if using a single, weakly-typed event,
+adding new events luckily doesn't require changing any of these shims.
+If going with separate events, they all need additional changes, though.
+
+As implemented in the call-like demonstration, adding new operations requires changes in all the other shims.
+
+In both cases, the changes aren't complicated, but it's obnoxious and error-prone to have so many.
+Combined with difficulty in testing/debugging, potential pain!
 
 ## To do
 The example wouldn't really be complete without demonstrating some pattern for cross-platform support,
 so that will be the next major thing to add.
+
+Also, I'd like to use Roslyn to help codegen all the jslib/WASM/Web Worker stuff/Unity-side P/Invoke code.
+I've used Roslyn in Unity in the past for my localization system, so it shouldn't be *overly* hard to get started.
+Of course, getting it working is another matter!
 
 ## Credits and shoutouts
 The .NET WASM stuff is largely based off this repo: https://github.com/ilonatommy/reactWithDotnetOnWebWorker/tree/master
 
 Someone did something similar Web Workers, though the goal wasn't cross-platform but was instead running user-provided JS code: https://codewithajay.com/porting-my-unity-game-to-web/
 The interesting part here is that they implemented their own one-size-fits-all RPC solution.
-For the example code in this project, the Web Workers and jslib files need to be extended when new events/operations are added.
+For this demonstration project, the Web Workers and jslib files need to be extended when new events/operations are added.
+For their project, this necessity goes away.
 Of course, I've only done it that way for simplicity, but their solution is quite nice!
 
 Regarding the above RPC solution, it's also worth mentioning that,
@@ -172,5 +212,5 @@ there will be no need to for that solution (if using C# is okay), nor the Web Wo
 
 ## Other handy references
 * Type mappings from .NET to WASM: https://learn.microsoft.com/en-us/aspnet/core/client-side/dotnet-interop/?view=aspnetcore-9.0#type-mappings
-* emscripten function signature stuff (the `vii` in `{{{ makeDynCall('vii', 'callback') }}} (requestId, buffer);`):
+* emscripten function signature stuff (the `viii` in `{{{ makeDynCall('viii', 'callback') }}} (requestId, buffer);`):
   https://emscripten.org/docs/porting/connecting_cpp_and_javascript/Interacting-with-code.html#function-signatures
