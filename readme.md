@@ -1,3 +1,5 @@
+A more verbose walkthrough can be found here: https://kyouha.today/blog/programming/unity-webgl-multithreaded/
+
 ## Problem
 JS is single-threaded, so long-running, synchronous operations on the main thread will slow down rendering.
 Ideally, we'd offload them to another thread.
