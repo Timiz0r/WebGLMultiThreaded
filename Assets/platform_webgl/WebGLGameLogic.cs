@@ -26,7 +26,7 @@ public class WebGLGameLogic : MonoBehaviour
         {
             case "Counter":
             {
-                StateChange<int> stateChange = untypedStateChange.ConvertFrom<int>();
+                StateChange<int> stateChange = untypedStateChange.ConvertTo<int>();
                 var obj = transform.Find("Counter");
                 obj.GetComponent<TextMeshPro>().text = stateChange.NewValue.ToString();
                 break;
@@ -34,7 +34,7 @@ public class WebGLGameLogic : MonoBehaviour
 
             case "Message":
             {
-                StateChange<string> stateChange = untypedStateChange.ConvertFrom<string>();
+                StateChange<string> stateChange = untypedStateChange.ConvertTo<string>();
                 var obj = transform.Find("Message");
                 obj.GetComponent<TextMeshPro>().text = stateChange.NewValue;
                 break;
