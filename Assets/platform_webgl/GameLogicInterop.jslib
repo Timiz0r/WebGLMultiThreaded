@@ -52,4 +52,3 @@ mergeInto(LibraryManager.library, {
   }
 });
 
-// no need for functions here, but left in place to allow easier comparison to "asynccall" example.

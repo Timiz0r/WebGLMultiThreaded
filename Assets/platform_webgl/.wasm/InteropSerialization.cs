@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using WebGLMultiThreaded;
@@ -13,12 +12,8 @@ using WebGLMultiThreaded;
 [JsonSourceGenerationOptions(IncludeFields = true)]
 [JsonSerializable(typeof(FoobarResult))]
 [JsonSerializable(typeof(UntypedStateChange))]
-internal partial class SourceGenerationContext : JsonSerializerContext
-{
-}
-
-internal static class InteropSerialization
+internal partial class InteropSerialization : JsonSerializerContext
 {
     public static string Serialize<T>(T obj)
-        => JsonSerializer.Serialize(obj, typeof(T), SourceGenerationContext.Default);
+        => JsonSerializer.Serialize(obj, typeof(T), InteropSerialization.Default);
 }
