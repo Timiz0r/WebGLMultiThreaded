@@ -64,17 +64,11 @@ public class OperationRequestBuilder<TResult, TError>
         return completionSource.Awaitable;
     }
 
-
     [MonoPInvokeCallback(typeof(Action<int, string>))]
     private static void Success(int requestId, string result)
     {
-        if (!requests.TryGetValue(requestId, out var requestContext))
-        {
-            Debug.LogError($"Unknown request id: {requestId}");
-            return;
-        }
+        if (!RetrieveRequestContext(requestId, out RequestContext requestContext)) return;
 
-        requests.Remove(requestId);
         requestContext.CompletionSource.SetResult(
             new(
                 IsSuccess: true,
@@ -89,13 +83,8 @@ public class OperationRequestBuilder<TResult, TError>
     [MonoPInvokeCallback(typeof(Action<int, string>))]
     private static void Failure(int requestId, string error)
     {
-        if (!requests.TryGetValue(requestId, out var requestContext))
-        {
-            Debug.LogError($"Unknown request id: {requestId}");
-            return;
-        }
+        if (!RetrieveRequestContext(requestId, out RequestContext requestContext)) return;
 
-        requests.Remove(requestId);
         requestContext.CompletionSource.SetResult(
             new(
                 IsSuccess: false,
@@ -106,13 +95,8 @@ public class OperationRequestBuilder<TResult, TError>
     [MonoPInvokeCallback(typeof(Action<int>))]
     private static void Initializing(int requestId)
     {
-        if (!requests.TryGetValue(requestId, out var requestContext))
-        {
-            Debug.LogError($"Unknown request id: {requestId}");
-            return;
-        }
+        if (!RetrieveRequestContext(requestId, out RequestContext requestContext)) return;
 
-        requests.Remove(requestId);
         // NOTE: not ideal for same reason as "duplicate request id" case described further up
         // it's an area that needs further design
         requestContext.CompletionSource.SetResult(
@@ -120,6 +104,17 @@ public class OperationRequestBuilder<TResult, TError>
                 IsSuccess: false,
                 Result: default,
                 Error: default));
+    }
+
+    private static bool RetrieveRequestContext(int requestId, out RequestContext requestContext)
+    {
+        if (!requests.TryGetValue(requestId, out requestContext))
+        {
+            Debug.LogError($"Unknown request id: {requestId}");
+            return false;
+        }
+        requests.Remove(requestId);
+        return true;
     }
 
     private record RequestContext(
