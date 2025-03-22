@@ -23,14 +23,14 @@ mergeInto(LibraryManager.library, {
             return;
           }
           // the corresponding unity component will then link everything back together
-          // const { success, failure } = callbacks; // apparently not supported. these vars just wont exist.
+          // const { success, failure, initializing } = callbacks; // apparently not supported. these vars just wont exist.
           const success = callbacks.success;
           const failure = callbacks.failure;
+          const initializing = callbacks.initializing;
 
           // aka the worker isn't ready to handle requests. instead of keeping them queued, we throw them out.
           if (command === "initializing") {
-            // FUTURE: this will kinda spam logs, so either a more structured error or another `initializing` callback would be better.
-            // this.sendResponse(failure, requestId, "Game logic worker not ready yet.");
+            this.sendResponse(initializing, requestId, null);
             return;
           }
 
@@ -53,9 +53,9 @@ mergeInto(LibraryManager.library, {
       }
 
       // helpers. turns out we need to define them here too
-      sendRequest(request, success, failure) {
+      sendRequest(request, success, failure, initializing) {
         const requestId = this.nextRequestId++;
-        this.pendingRequests[requestId] = { success, failure };
+        this.pendingRequests[requestId] = { success, failure, initializing };
         this.worker.postMessage({ ...request, requestId });
         return requestId;
       }
@@ -66,8 +66,8 @@ mergeInto(LibraryManager.library, {
         stringToUTF8(response, buffer, len);
         {{{ makeDynCall('vii', 'callback') }}} (requestId, buffer);
         // NOTE: it's not clear if there's a risk of use-after-free here, if the callback stores the data (closure, etc.)
-        // since .NET strings are utf16, I feel like there's a decent chance the string the callback gets
-        // is another (converted) copy, but the docs aren't clear on this.
+        // probably not a problem *if* Unity converts it to UTF16 (and doesn't otherwise use the UTF8 version).
+        // but, somewhere in the .NET->il2cpp->wasm pipeline, perhaps UTF16 no longer gets used.
         //
         // also, from the docs: If the string is a return value, then the IL2CPP runtime automatically frees up the memory for you.
         // so we need to do it manually
@@ -80,8 +80,8 @@ mergeInto(LibraryManager.library, {
   // however, in order to not rely on a specific game object name, we're opting for a callback.
   // still, we could accept the game object name as a parameter if desired.
   // also note that the async event example uses SendMessage, so take a look there for an example on using SendMessage!
-  OperationRunnerInterop_Foobar: function (num, success, failure) {
-    return window.operationRunnerInterop.sendRequest({ command: "Foobar", num }, success, failure);
+  OperationRunnerInterop_Foobar: function (num, success, failure, initializing) {
+    return window.operationRunnerInterop.sendRequest({ command: "Foobar", num }, success, failure, initializing);
   },
 });
 

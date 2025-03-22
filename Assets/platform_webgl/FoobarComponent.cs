@@ -14,7 +14,8 @@ public class FoobarComponent : MonoBehaviour
     private static extern void OperationRunnerInterop_Initialize();
 
     [DllImport("__Internal")]
-    private static extern int OperationRunnerInterop_Foobar(int num, Action<int, string> success, Action<int, string> failure);
+    private static extern int OperationRunnerInterop_Foobar(
+        int num, Action<int, string> success, Action<int, string> failure, Action<int> initializing);
 
     private static OperationRequestBuilder<FoobarResult, string> foobarOperation = OperationRequestBuilder.Create(
         success: stateJson => (FoobarResult)JsonUtility.FromJson(stateJson, typeof(FoobarResult)),
@@ -30,7 +31,8 @@ public class FoobarComponent : MonoBehaviour
     async Awaitable OnMouseDown()
     {
         OperationResponse<FoobarResult, string> response = await foobarOperation.Launch(
-            (success, failure) => OperationRunnerInterop_Foobar(rng.Next(100), success: success, failure: failure));
+            (success, failure, initializing) => OperationRunnerInterop_Foobar(
+                rng.Next(100), success: success, failure: failure, initializing: initializing));
 
         if (!response.IsSuccess)
         {

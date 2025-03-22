@@ -24,19 +24,11 @@ public static class OperationRequestBuilder
         Func<string, TResult> success, Func<string, TError> failure) => new(success, failure);
 }
 
-public class OperationResponse<TResult, TError>
-{
-    public bool IsSuccess { get; }
-    public TResult Result { get; }
-    public TError Error { get; }
-
-    public OperationResponse(bool isSuccess, TResult result, TError error)
-    {
-        IsSuccess = isSuccess;
-        Result = result;
-        Error = error;
-    }
-}
+public record OperationResponse<TResult, TError>(
+    bool IsSuccess,
+    TResult Result,
+    TError Error
+);
 
 public class OperationRequestBuilder<TResult, TError>
 {
@@ -53,18 +45,18 @@ public class OperationRequestBuilder<TResult, TError>
     }
 
     public Awaitable<OperationResponse<TResult, TError>> Launch(
-        Func<Action<int, string>, Action<int, string>, int> requestLauncher)
+        Func<Action<int, string>, Action<int, string>, Action<int>, int> requestLauncher)
     {
         AwaitableCompletionSource<OperationResponse<TResult, TError>> completionSource = new();
 
-        int requestId = requestLauncher(Success, Failure);
+        int requestId = requestLauncher(Success, Failure, Initializing);
         if (requests.ContainsKey(requestId))
         {
             Debug.LogError($"Duplicate request id: {requestId}");
             // NOTE: kinda expect either result or error to be non-default/null
             // however, since it's implementation specific the format of error, we can't do any better
             // alternatives include throwing, warning and proceeding, or adding an additional delegate for failure to launch request
-            completionSource.SetResult(new(isSuccess: false, result: default, error: default));
+            completionSource.SetResult(new(IsSuccess: false, Result: default, Error: default));
             return completionSource.Awaitable;
         }
 
@@ -82,11 +74,12 @@ public class OperationRequestBuilder<TResult, TError>
             return;
         }
 
+        requests.Remove(requestId);
         requestContext.CompletionSource.SetResult(
             new(
-                isSuccess: true,
-                result: requestContext.Builder.successBuilder(result),
-                error: default));
+                IsSuccess: true,
+                Result: requestContext.Builder.successBuilder(result),
+                Error: default));
     }
 
     // quick note: c# 10 gets lambda attributes! unity on c# 9 though.
@@ -102,11 +95,31 @@ public class OperationRequestBuilder<TResult, TError>
             return;
         }
 
+        requests.Remove(requestId);
         requestContext.CompletionSource.SetResult(
             new(
-                isSuccess: false,
-                result: default,
-                error: requestContext.Builder.failureBuilder(error)));
+                IsSuccess: false,
+                Result: default,
+                Error: requestContext.Builder.failureBuilder(error)));
+    }
+
+    [MonoPInvokeCallback(typeof(Action<int>))]
+    private static void Initializing(int requestId)
+    {
+        if (!requests.TryGetValue(requestId, out var requestContext))
+        {
+            Debug.LogError($"Unknown request id: {requestId}");
+            return;
+        }
+
+        requests.Remove(requestId);
+        // NOTE: not ideal for same reason as "duplicate request id" case described further up
+        // it's an area that needs further design
+        requestContext.CompletionSource.SetResult(
+            new(
+                IsSuccess: false,
+                Result: default,
+                Error: default));
     }
 
     private record RequestContext(
