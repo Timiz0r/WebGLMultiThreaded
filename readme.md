@@ -108,7 +108,7 @@ Whatever is awaiting on the `Launch` call will then be able to do with the resul
 
 #### Unity triggering GameLogic update
 `WebGLGameLogic.cs`, when Unity's `Update` is called, will simply trigger the game logic update.
-It will call `GameLogicInterop.jslib`'s `GameLogicInterop_Update` (and do some initialization beforehand),
+It will call `WebGLGameLogic.jslib`'s `WebGLGameLogic_Update` (and do some initialization beforehand),
 which will send a message to a Web Worker -- to be covered later in [WASM and Web Worker-side](#wasm-and-web-worker-side).
 Eventually, the worker will send messages corresponding to game state updates.
 In turn, these gets pumped through to `WebGLGameLogic.StateChanged`, which can process the event.
@@ -128,14 +128,14 @@ This response message gets picked up Unity-side, as described [above](#unity-inv
 
 
 ### Web Worker game logic update request
-When the `command="update"` message is received (from `GameLogicInterop.jslib`),
-we simply invoke `GameLogicInterop.Update`.
+When the `command="update"` message is received (from `WebGLGameLogic.jslib`),
+we simply invoke `WebGLGameLogic.Update`.
 
-`GameLogicInterop` exports the `Update` function,
+`WebGLGameLogic` exports the `Update` function,
 which translates the call to the real `GameLogic.Update` method.
 
-Additionally, `GameLogicInterop` imports a `StateChanged` function that is defined in `gameLogicInteropWorker.js`.
-When `GameLogic.StateChanged` triggers, `GameLogicInterop` forwards it to this JS function, performing serialization --
+Additionally, `WebGLGameLogic` imports a `StateChanged` function that is defined in `WebGLGameLogicWorker.js`.
+When `GameLogic.StateChanged` triggers, `WebGLGameLogic` forwards it to this JS function, performing serialization --
 to JSON in this case.
 
 The JS-side `StateChanged` function will then send out a `stateChanged` message, which gets picked up Unity-side,

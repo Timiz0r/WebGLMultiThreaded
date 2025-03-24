@@ -10,7 +10,7 @@
 
     <ProjectRoot>$(MSBuildThisFileDirectory.TrimEnd('\').TrimEnd('/'))</ProjectRoot>
     <WebGLPlatformDir>$(ProjectRoot)\..</WebGLPlatformDir>
-    <AssetsDir>$(WebGLPlatformDir)\..</AssetsDir>
+    <AssetsDir>$(WebGLPlatformDir)\..\..</AssetsDir>
     <GameLogicDir>$(AssetsDir)\GameLogic</GameLogicDir>
     <OperationsDir>$(AssetsDir)\Operations</OperationsDir>
 

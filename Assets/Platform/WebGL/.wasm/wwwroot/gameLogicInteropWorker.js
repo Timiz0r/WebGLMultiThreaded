@@ -29,6 +29,10 @@ onmessage = e => {
         switch (e.data.command) {
             case "update":
                 const time = e.data.time;
+                // since we run this synchronously, this worker effectively queues up messages
+                // if Update runs for a long time, this could *theoretically* back up the queue.
+                // however, because of GameLogic.TimePerTick, we expect the queue to drain during these intervals.
+                // FUTURE: still, implementing some "lag tracking" might be prudent.
                 assemblyExports.GameLogicInterop.Update(time);
                 break;
             default:

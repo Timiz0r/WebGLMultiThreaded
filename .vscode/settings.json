@@ -1,7 +1,7 @@
 {
     "files.exclude": {
         // prefer opening separate vscode
-        "Assets/platform_webgl/.wasm/": true,
+        "Assets/Platform/WebGL/.wasm/": true,
 
         "**/.DS_Store": true,
         "**/.git": true,

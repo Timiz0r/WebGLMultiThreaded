@@ -2,6 +2,7 @@ using System.Threading;
 
 namespace WebGLMultiThreaded
 {
+    // since all of this gets built for a non-Unity project, nothing in this folder should have no dependencies on Unity.
     public static class OperationRunner
     {
         public static FoobarResult Foobar(int num)

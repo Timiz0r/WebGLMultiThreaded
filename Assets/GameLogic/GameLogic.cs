@@ -4,11 +4,12 @@ using System.Threading;
 
 namespace WebGLMultiThreaded
 {
-
     // as a contrived example, the game logic provides data back to Unity through two designs, and one need only pick one.
     // 1. returning state
     // 2. triggering an event
     // for events, there are a million ways to design it, from callbacks event handlers/multicast delegates, as done here.
+    //
+    // since all of this gets built for a non-Unity project, nothing in this folder should have no dependencies on Unity.
     public class GameLogic
     {
         private const float TimePerTick = 1;
@@ -21,6 +22,11 @@ namespace WebGLMultiThreaded
         // but, due to amount of plumbing needed in other places, it didn't really scale in terms of maintainability.
         public event Action<StateChange> StateChanged;
 
+
+        // NOTE: thread safety is not a concern because we (currently) queue up calls to Update on a separate thread.
+        // if we instead do them in parallel or just want to be defensive, Interlocked.CompareExchange is a simple way
+        // to ensure only one invocation of this runs at a time.
+        // an Interlocked.CompareExchange example is available in the "default" implementation, since it needs it.
         public void Update(float time)
         {
             if (time < nextTime) return;
@@ -64,6 +70,8 @@ namespace WebGLMultiThreaded
         {
             original = stateChange;
         }
+
+        public StateChange NonGeneric() => original;
     }
     
     // needed because, by choosing to trigger an event for each individual piece of state that changes,
