@@ -45,7 +45,7 @@ onmessage = e => {
         switch (e.data.command) {
             case "Foobar":
                 const num = e.data.num;
-                const result = assemblyExports.OperationRunnerInterop.Foobar(num);
+                const result = assemblyExports.OperationInterop.Foobar(num);
                 return sendResponse(result)
             default:
                 throw new Error("Unknown command: " + e.data.command);

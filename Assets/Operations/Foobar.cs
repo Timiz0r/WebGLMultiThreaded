@@ -3,9 +3,9 @@ using System.Threading;
 namespace WebGLMultiThreaded
 {
     // since all of this gets built for a non-Unity project, nothing in this folder should have no dependencies on Unity.
-    public static class OperationRunner
+    public static class Foobar
     {
-        public static FoobarResult Foobar(int num)
+        public static FoobarResult Execute(int num)
         {
             //some expensive operation
             Thread.Sleep(500);

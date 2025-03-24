@@ -2,7 +2,8 @@
     "name": "Platform.Default",
     "rootNamespace": "",
     "references": [
-        "GameLogic"
+        "GameLogic",
+        "Operations"
     ],
     "includePlatforms": [],
     "excludePlatforms": [

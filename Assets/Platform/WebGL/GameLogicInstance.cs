@@ -1,7 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
 using AOT;
-using TMPro;
 using UnityEngine;
 using WebGLMultiThreaded;
 
@@ -12,9 +11,9 @@ public static class GameLogicInstance
 
     public static event Action<StateChange> StateChanged;
 
-    public static void Update()
+    public static void Update(float time)
     {
-        WebGLGameLogic_Update(Time.time);
+        WebGLGameLogic_Update(time);
     }
 
     // FUTURE/NOTE: pain point!
