@@ -26,17 +26,7 @@ public static class GameLogicInstance
     [MonoPInvokeCallback(typeof(Action<string>))]
     private static void StateChangedInternal(string json)
     {
-        UntypedStateChange untypedStateChange = (UntypedStateChange)JsonUtility.FromJson(json, typeof(UntypedStateChange));
-        StateChange stateChange = untypedStateChange.Target switch {
-            "Counter" => untypedStateChange.ConvertTo<int>().NonGeneric(),
-            "Message" => untypedStateChange.ConvertTo<string>().NonGeneric(),
-            _ => null
-        };
-        if (stateChange is null)
-        {
-            Debug.LogError($"Unknown state change: {json}");
-            return;
-        }
+        StateChange stateChange = (StateChange)JsonUtility.FromJson(json, typeof(StateChange));
         StateChanged?.Invoke(stateChange);
     }
 

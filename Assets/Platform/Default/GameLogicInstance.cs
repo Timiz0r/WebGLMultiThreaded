@@ -19,11 +19,23 @@ public static class GameLogicInstance
 
         ThreadPool.QueueUserWorkItem(_ =>
         {
-            gameLogic.Update(time);
-            updateInProgress = 0;
+            try
+            {
+                gameLogic.Update(time);
+            }
+            finally
+            {
+                updateInProgress = 0;
+            }
         });
     }
 
+    // NOTE: this, to me, suprisingly-ish works.
+    // rather, I would expect it to *not* work if there's no code that yields any time in the main thread.
+    //
+    // if this implementation isn't working in your case, this would be a solution easier to reason about:
+    // 1. store all event data in a thread-safe way (SemaphoreSlim or immutable collections [or thread-safe collections])
+    // 2. Have SceneGameLogicRunner.(Late)Update invoke a GameLogicInstance.SendEvents (in a thread-safe way)
     private static void StateChangedInternal(StateChange stateChange)
         => mainThread.Post(_ => StateChanged?.Invoke(stateChange), null);
 

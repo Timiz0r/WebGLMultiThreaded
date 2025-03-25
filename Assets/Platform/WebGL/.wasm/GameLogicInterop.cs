@@ -8,8 +8,7 @@ internal partial class GameLogicInterop
     {
         // we need to output json because current wasm source generation doesn't support arbitrary objects
         // see issue for adding a way to easily marshall objects: https://github.com/dotnet/runtime/issues/77784
-        Instance.StateChanged += eventData => StateChanged(
-            InteropSerialization.Serialize(UntypedStateChange.From(eventData)));
+        Instance.StateChanged += stateChange => StateChanged(InteropSerialization.Serialize(stateChange));
     }
 
     [JSExport]

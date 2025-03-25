@@ -8,26 +8,8 @@ public class SceneGameLogicRunner : MonoBehaviour
     // one alternative is adding and invoking unity events from here
     private void StateChanged(StateChange stateChange)
     {
-        switch (stateChange.Target)
-        {
-            case "Counter":
-            {
-                var obj = transform.Find("Counter");
-                obj.GetComponent<TextMeshPro>().text = stateChange.As<int>().NewValue.ToString();
-                break;
-            }
-
-            case "Message":
-            {
-                var obj = transform.Find("Message");
-                obj.GetComponent<TextMeshPro>().text = stateChange.As<string>().NewValue;
-                break;
-            }
-
-            default:
-                Debug.LogError($"Unknown state change: {stateChange.Target}");
-                break;
-        }
+        transform.Find("Counter").GetComponent<TextMeshPro>().text = stateChange.New.Counter.ToString();
+        transform.Find("Message").GetComponent<TextMeshPro>().text = stateChange.New.Message;
     }
 
     void Start()
