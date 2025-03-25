@@ -16,13 +16,6 @@ public static class GameLogicInstance
         WebGLGameLogic_Update(time);
     }
 
-    // FUTURE/NOTE: pain point!
-    // Standalone platform will keep its StateChange type without a problem.
-    // we want to replicate this behavior WebGL-side, and, as currently designed, this requires doing the conversion over here.
-    // any time we add a new event, we must modify this method. potential solutions:
-    // * codegen
-    // * use some general RPC solution so that type information isn't lost when we serialize WebGL stuff
-    // * have GameLogic.StateChanged use UntypedStateChange, to match what WebGL has to do
     [MonoPInvokeCallback(typeof(Action<string>))]
     private static void StateChangedInternal(string json)
     {

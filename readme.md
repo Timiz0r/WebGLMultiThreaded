@@ -1,4 +1,8 @@
-A more verbose walkthrough can be found here: https://kyouha.today/blog/programming/unity-webgl-multithreaded/
+A more verbose walkthrough can be found here: https://kyouha.today/blog/programming/unity-webgl-multithreaded-part2/
+
+There are multiple version of the code:
+* [Original](https://github.com/Timiz0r/WebGLMultiThreaded/tree/original): Implementing multi-threading in WebGL with C# and JS Web Workers
+* [Crossplat](https://github.com/Timiz0r/WebGLMultiThreaded/tree/crossplat): Adding a Standalone version that uses the same C# code to update the same scene.
 
 ## Problem
 JS is single-threaded, so long-running, synchronous operations on the main thread will slow down rendering.
@@ -68,21 +72,83 @@ Let's get started!
 This example project contains an example for both an "async caller" approach and an "async event" approach.
 * The "async caller" approach is implemented as a "Foobar operation"
   that is potentially long-running and returns some result.
+  `Foobar.cs` contains a `Foobar.Execute` operation that performs some operation and returns a result.
 * The "async event" approach is implemented as some game logic that regularly gets updated.
   When the state of the game changes, events are triggered.
+  `GameLogic.cs` is a simple class with an `Update` method that will trigger events when some state changes.
 
-### Shared code
-* `GameLogic.cs` is a simple class with an `Update` method that will trigger events when some state changes.
-* `OperationRunner.cs` contains a `Foobar` operation that performs some operation and returns a result.
+### Platform-agnostic components
+The `FoobarComponent`, when clicked, will trigger the `Foobar` operation.
+This is done by invoking an intermediate `OperationRunner.FoobarAsync` -- a platform-specific implementation.
 
-In practice, the WASM-side code will actually run these,
-while the Unity-side code will use the types within for deserialization from JSON.
+`SceneGameLogicRunner`, when Unity's `Update` is called, will trigger `GameLogic.Update`.
+It also receives `GameLogic.StateChanged` events.
+This is all done via an intermediate `GameLogicInstance` -- a platform-specific implementation.
 
-### Unity-side
-#### Unity invoking Foobar operation
-`FoobarComponent.cs`, when clicked, will trigger the `Foobar` operation.
-It will call `OperationRunnerInterop.jslib`'s `OperationRunnerInterop_Foobar` (and do initialization beforehand),
-which will send a message to a Web Worker -- to be covered later in [WASM and Web Worker-side](#wasm-and-web-worker-side).
+### Writing platform-specific code
+The two *general* ways to go about it is `#if #endif` conditional compilation and assembly definitions.
+I chose assembly definitions because it results in overall cleaner projects and source code.
+However, platform-specific assembly definitions make other developments tasks a bit more painful.
+For instance, my `.sln` file doesn't ever include by `Platform.WebGL` assembly,
+so lately I've been `Build And Running`, fixing errors, and repeating, since VS (Code) won't do any analysis of the code.
+
+### Default/Standalone platform-specific
+Since we can easily do mulit-threading in Windows/Mac/Linux, the implementation here is simple.
+
+`GameLogicInstance` simply needs to perform `GameLogic.Update` calls on another thread,
+then raise the events on the main thread.
+Though, the event part *may* get a slight bit more complicated in some cases (or maybe no cases) -- as noted in the code.
+
+`OperationRunner` is even simpler.
+`Awaitable` includes `Awaitable.BackgroundThreadAsync`, so getting things running on a separate thread is easy.
+Furthermore, getting the return value back to the main thread is handled by the `await` of the caller.
+
+### WebGL platform-specific
+In practice, the WASM-side code will actually run `GameLogic` and `Foobar` operation.
+Over in Unity, the platform-specific `OperationRunner.FoobarAsync` and `SceneGameLogicRunner`
+will communicate with JS/WASM via a Web Worker, sending and receiving messages.
+
+#### WASM and Web Worker
+The `.wasm` folder contains the WASM project that hooks up the actual implementations to Web Workers.
+* `GameLogic<->GameLogicInterop<->gameLogicInteropWorker.js`
+* `Foobar.Execute<->OperationInterop<->operationRunnerInteropWorker.js`
+
+The interop classes are pretty simple.
+
+The Web Workers deal with messages -- serialized to JSON in this demonstration.
+Messages received by the workers will come from Unity
+(via the WebGL `OperationRunner.FoobarAsync` and `SceneGameLogicRunner` implementations)
+and trigger whatever behaviors necessary via the interop classes.
+Messages sent out from the workers will be received by Unity, deserialized, and exposed
+(again, via the `OperationRunner.FoobarAsync` and `SceneGameLogicRunner` classes).
+
+##### Web Worker receives Foobar operation request
+When the `command="Foobar"` message is received (from Unity-side `OperationRunnerInterop.jslib`),
+we simply invoke `OperationRunner.Foobar`.
+
+`OperationRunner` exports the `Foobar` function,
+which translates the call to the real `Foobar.Execute` method.
+Additionally, we must serialize the `FoobarResult` -- to JSON in this case.
+
+We take this JSON string return value and send a response message out.
+This response message gets picked up Unity-side, as described [above](#unity-invoking-foobar-operation).
+
+##### Web Worker game logic update request
+When the `command="update"` message is received (from `GameLogicInterop.jslib`),
+we simply invoke `GameLogicInterop.Update`.
+
+`GameLogicInterop` exports the `Update` function,
+which translates the call to the real `GameLogic.Update` method.
+
+Additionally, `GameLogicInterop` imports a `StateChanged` function that is defined in `gameLogicInteropWorker.js`.
+When `GameLogic.StateChanged` triggers, `GameLogicInterop` forwards it to this JS function, performing serialization.
+
+The JS-side `StateChanged` function will then send out a `stateChanged` message, which gets picked up Unity-side,
+as described [above](#unity-triggering-gamelogic-update).
+
+#### WebGL OperationRunner.FoobarAsync
+A component such as `FoobarOperation` will call `OperationRunnerInterop.jslib`'s `OperationRunnerInterop_Foobar`
+(and do initialization beforehand), which will send a message to the Web Worker.
 Eventually, when the worker respond with a message containing the result, we'll process it and update some game objects.
 
 ##### Hooking up Web Worker request and response to Awaitable
@@ -106,40 +172,13 @@ it uses these to provide the right result to `AwaitableCompletionSource`.
 
 Whatever is awaiting on the `Launch` call will then be able to do with the result as they please.
 
-#### Unity triggering GameLogic update
-`WebGLGameLogic.cs`, when Unity's `Update` is called, will simply trigger the game logic update.
-It will call `WebGLGameLogic.jslib`'s `WebGLGameLogic_Update` (and do some initialization beforehand),
-which will send a message to a Web Worker -- to be covered later in [WASM and Web Worker-side](#wasm-and-web-worker-side).
+#### WebGL GameLogicInstance
+`GameLogicInstance`, when Unity's `Update` is called, will simply trigger the game logic update.
+It will call `GameLogicInterop.jslib`'s `WebGLGameLogic_Update` (and do some initialization beforehand),
+which will send a message to the Web Worker.
 Eventually, the worker will send messages corresponding to game state updates.
-In turn, these gets pumped through to `WebGLGameLogic.StateChanged`, which can process the event.
-
-### WASM and Web Worker-side
-
-#### Web Worker receives Foobar operation request
-When the `command="Foobar"` message is received (from `OperationRunnerInterop.jslib`),
-we simply invoke `OperationRunnerInterop.Foobar`.
-
-`OperationRunnerInterop` exports the `Foobar` function,
-which translates the call to the real `OperationRunner.Foobar` method.
-Additionally, we must serialize the `FoobarResult` -- to JSON in this case.
-
-We take this JSON string return value and send a response message out.
-This response message gets picked up Unity-side, as described [above](#unity-invoking-foobar-operation).
-
-
-### Web Worker game logic update request
-When the `command="update"` message is received (from `WebGLGameLogic.jslib`),
-we simply invoke `WebGLGameLogic.Update`.
-
-`WebGLGameLogic` exports the `Update` function,
-which translates the call to the real `GameLogic.Update` method.
-
-Additionally, `WebGLGameLogic` imports a `StateChanged` function that is defined in `WebGLGameLogicWorker.js`.
-When `GameLogic.StateChanged` triggers, `WebGLGameLogic` forwards it to this JS function, performing serialization --
-to JSON in this case.
-
-The JS-side `StateChanged` function will then send out a `stateChanged` message, which gets picked up Unity-side,
-as described [above](#unity-triggering-gamelogic-update).
+In turn, these gets pumped through to `GameLogicInstance.StateChanged`, then `SceneGameLogicRunner`,
+which processes the event.
 
 ## Implementation notes
 There are pretty ample comments that cover a lot of the implementation, as well as potential alternatives.
@@ -148,27 +187,26 @@ Of course, feel free to create an issue if something is broken/unclear/etc.
 ## Pain points
 How painful it is to implement does largely depend on how much effort one puts into design. Still...
 
-### Play mode
-As-is, play mode won't work, since play mode doesn't load JavaScript plugins
-(since the Web build isn't run in play mode, no matter which platform is selected).
-Making the game cross-platform is the way to solve it,
-but that still doesn't help with debugging and testing the WebGL build.
+### Running and debugging WebGL
 The only way to do so is to `Build And Run`, which takes a rather long time if any code is changed.
 Rebuilds with just scene changes are quick enough, though.
 Also, non-AOT WASM builds are very quick.
 
-### Debugging
+
+#### WebGL Debugging
 Since play mode isn't a thing, so neither is debugging (in the modern sense).
+Debugging is done via console logging.
 
 Unity-side, debugging requires lots of console logging and rebuilds that take minutes even for small projects.
 This is mainly because we can't run or debug jslib stuff in play mode, and,
 to be fair, this is regardless of wanting to satisfy multi-threading requirements/desires.
-Finally, once all the plumbing is hooked up, plus perhaps a bit more design magic to make things easier to extend,
-the pain should go away.
 
 C#/WASM-side, there is again no real debugging, requiring console logging.
 However, non-AOT rebuilds only take a handful of seconds and don't require Unity rebuilds, so iteration is pretty quick.
 This is handy, since, for the game logic example, most churn should be there as compared to Unity.
+
+Though, to be fair, if crossplat is implemented well, then play mode or standalone builds will be sufficient for debugging.
+The main part where debugging in WebGL is needed is getting the initial interop stuff hooked up.
 
 ### Plumbing
 The end goal is `Game logic/long-running operations <-> Unity`
@@ -192,10 +230,7 @@ In both cases, the changes aren't complicated, but it's obnoxious and error-pron
 Combined with difficulty in testing/debugging, potential pain!
 
 ## To do
-The example wouldn't really be complete without demonstrating some pattern for cross-platform support,
-so that will be the next major thing to add.
-
-Also, I'd like to use Roslyn to help codegen all the jslib/WASM/Web Worker stuff/Unity-side P/Invoke code.
+I'd like to use Roslyn to help codegen all the jslib/WASM/Web Worker stuff/Unity-side P/Invoke code.
 I've used Roslyn in Unity in the past for my localization system, so it shouldn't be *overly* hard to get started.
 Of course, getting it working is another matter!
 
