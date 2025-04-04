@@ -8,3 +8,4 @@ const assemblyExports = await getAssemblyExports(config.mainAssemblyName);
 const interop = assemblyExports.OperationInterop;
 
 Comlink.expose(interop);
+postMessage("_init");

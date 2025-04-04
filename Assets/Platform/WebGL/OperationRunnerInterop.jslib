@@ -8,17 +8,24 @@ mergeInto(LibraryManager.library, {
 
     window.operationRunnerInterop = new class {
       constructor() {
-        import("https://unpkg.com/comlink/dist/esm/comlink.mjs").then(Comlink => {
-          // FUTURE: interop may take time to get initialized, both the field, as well as the underlying worker
-          // if necessary, consider checking interop !== undefined at its callers,
-          // and consider adding some indication worker-side that initialization is complete
-          this.interop = Comlink.wrap(
-            new Worker('interop/wwwroot/operationRunnerInteropWorker.js', { type: "module" }));
-        });
+        const worker = new Worker('interop/wwwroot/operationRunnerInteropWorker.js', { type: "module" });
+        worker.onmessage = m => {
+          if (m.data === "_init") {
+            import("https://unpkg.com/comlink/dist/esm/comlink.mjs").then(Comlink => {
+              this.interop = Comlink.wrap(worker);
+              this.initComplete = true;
+            });
+          }
+        }
+
         this.nextRequestId = 0;
       }
 
       begin(request, success, failure) {
+        // FUTURE: if the caller needs special handling for lack of initialization, be sure to add it.
+        // it's not done in the example mainly because it's driven by a button click, before which initialization is surely done.
+        if (!this.initComplete) return -1;
+
         const requestId = this.nextRequestId++;
 
         request(this.interop).then(
