@@ -15,6 +15,10 @@ mergeInto(LibraryManager.library, {
               this.interop = Comlink.wrap(worker);
               // `this` isn't what we think `this` is thanks to the Comlink proxy,
               // so we wrap the handleEvent call in an arrow func to capture the right `this`
+              //
+              // furthermore, this must only happen after the worker is ready to receive messages,
+              // hence the extra initialization logic.
+              // setting `interop.subscriber` requires Comlink to be receiving messages on the worker-side.
               this.interop.subscriber = Comlink.proxy(data => this.handleEvent(data));
               this.initComplete = true;
             });

@@ -16,9 +16,6 @@ const subscriberHandler = new class {
         return true;
     }
     get(obj, prop) {
-        if ("prop" === "subscribe") {
-            return s => this.subscriber = s;
-        }
         if (prop === "subscriber") {
             return this.subscriber;
         }
