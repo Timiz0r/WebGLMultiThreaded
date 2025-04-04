@@ -1,52 +1,35 @@
-import { dotnet } from './_framework/dotnet.js'
+import { dotnet } from "./_framework/dotnet.js";
+import * as Comlink from "https://unpkg.com/comlink/dist/esm/comlink.mjs";
 
-// largely based off of...
-// https://github.com/ilonatommy/reactWithDotnetOnWebWorker/blob/master/react/src/client.js
+const { setModuleImports, getAssemblyExports, getConfig } = await dotnet.create();
 
-let assemblyExports = null;
-let startupError = undefined;
+const config = getConfig();
+const assemblyExports = await getAssemblyExports(config.mainAssemblyName);
 
-try {
-    const { setModuleImports, getAssemblyExports, getConfig } = await dotnet.create();
-
-    setModuleImports("GameLogic", {
-        StateChanged: data => sendEvent(data)
-    });
-
-    const config = getConfig();
-    assemblyExports = await getAssemblyExports(config.mainAssemblyName);
-}
-catch (err) {
-    startupError = err.message;
-}
-
-onmessage = e => {
-    try {
-        if (!assemblyExports) {
-            throw new Error(startupError || "worker exports not loaded");
+const subscriberHandler = new class {
+    set(obj, prop, value) {
+        if (prop === "subscriber") {
+            this.subscriber = value;
+        } else {
+            obj[prop] = value;
         }
-
-        switch (e.data.command) {
-            case "update":
-                const time = e.data.time;
-                // since we run this synchronously, this worker effectively queues up messages
-                // if Update runs for a long time, this could *theoretically* back up the queue.
-                // however, because of GameLogic.TimePerTick, we expect the queue to drain during these intervals.
-                // FUTURE: still, implementing some "lag tracking" might be prudent.
-                assemblyExports.GameLogicInterop.Update(time);
-                break;
-            default:
-                throw new Error("Unknown command: " + e.data.command);
+        return true;
+    }
+    get(obj, prop) {
+        if ("prop" === "subscribe") {
+            return s => this.subscriber = s;
         }
+        if (prop === "subscriber") {
+            return this.subscriber;
+        }
+        return obj[prop];
     }
-    catch (err) {
-        sendError(err)
-    }
-};
+}();
+const interop = new Proxy(assemblyExports.GameLogicInterop, subscriberHandler);
 
-function sendEvent(data) {
-    postMessage({ command: "stateChanged", data });
-}
-function sendError(err) {
-    postMessage({ command: "error", error: err.message });
-}
+setModuleImports("GameLogic", {
+    StateChanged: data => { interop.subscriber && interop.subscriber(data); }
+});
+
+Comlink.expose(interop);
+postMessage("_init");

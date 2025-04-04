@@ -9,25 +9,28 @@ mergeInto(LibraryManager.library, {
     window.WebGLGameLogic = new class {
       constructor () {
         const worker = new Worker('interop/wwwroot/gameLogicInteropWorker.js', { type: "module" });
-        worker.onmessage = e => {
-          if (e.data.command === "error") {
-            console.error(e.data.error);
-            return;
+        worker.onmessage = m => {
+          if (m.data === "_init") {
+            import("https://unpkg.com/comlink/dist/esm/comlink.mjs").then(Comlink => {
+              this.interop = Comlink.wrap(worker);
+              // `this` isn't what we think `this` is thanks to the Comlink proxy,
+              // so we wrap the handleEvent call in an arrow func to capture the right `this`
+              this.interop.subscriber = Comlink.proxy(data => this.handleEvent(data));
+              this.initComplete = true;
+            });
           }
-
-          if (e.data.command !== "stateChanged") return;
-
-          this.handleEvent(e.data.data);
         };
 
-        this.worker = worker;
         this.eventHandler = eventHandler;
       }
 
-      // helpers. turns out we need to define them here too
-      sendRequest(request) {
-        this.worker.postMessage(request);
+      update(time) {
+        if (!this.initComplete) return;
+        // returns a promise, but, since we won't be acting on it, just let it be!
+        this.interop.Update(time);
       }
+
+      // NOTE: since we need to serialize WASM-side, data will be a string, so no need to JSON.stringify
       handleEvent(data) {
         const len = lengthBytesUTF8(data) + 1;
         const buffer = _malloc(len);
@@ -47,7 +50,7 @@ mergeInto(LibraryManager.library, {
   },
 
   WebGLGameLogic_Update: function (time) {
-    window.WebGLGameLogic.sendRequest({ command: "update", time });
+    window.WebGLGameLogic.update(time);
   },
 });
 
