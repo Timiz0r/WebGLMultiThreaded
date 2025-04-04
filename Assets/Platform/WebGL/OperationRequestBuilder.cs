@@ -45,11 +45,11 @@ public class OperationRequestBuilder<TResult, TError>
     }
 
     public Awaitable<OperationResponse<TResult, TError>> Launch(
-        Func<Action<int, string>, Action<int, string>, Action<int>, int> requestLauncher)
+        Func<Action<int, string>, Action<int, string>, int> requestLauncher)
     {
         AwaitableCompletionSource<OperationResponse<TResult, TError>> completionSource = new();
 
-        int requestId = requestLauncher(Success, Failure, Initializing);
+        int requestId = requestLauncher(Success, Failure);
         if (requests.ContainsKey(requestId))
         {
             Debug.LogError($"Duplicate request id: {requestId}");
@@ -80,6 +80,8 @@ public class OperationRequestBuilder<TResult, TError>
     // though, since pinvoke, afaik, requires static methods, perhaps we couldn't use lambdas anyway.
     // PS: do lambdas that ultimately don't capture anything get generated as static methods?
     // also, static lambda proposal exists
+    //
+    // in any case, since we can't capture request id in a lambda, we need to pass request ids through to js and get it back.
     [MonoPInvokeCallback(typeof(Action<int, string>))]
     private static void Failure(int requestId, string error)
     {
@@ -90,20 +92,6 @@ public class OperationRequestBuilder<TResult, TError>
                 IsSuccess: false,
                 Result: default,
                 Error: requestContext.Builder.failureBuilder(error)));
-    }
-
-    [MonoPInvokeCallback(typeof(Action<int>))]
-    private static void Initializing(int requestId)
-    {
-        if (!RetrieveRequestContext(requestId, out RequestContext requestContext)) return;
-
-        // NOTE: not ideal for same reason as "duplicate request id" case described further up
-        // it's an area that needs further design
-        requestContext.CompletionSource.SetResult(
-            new(
-                IsSuccess: false,
-                Result: default,
-                Error: default));
     }
 
     private static bool RetrieveRequestContext(int requestId, out RequestContext requestContext)

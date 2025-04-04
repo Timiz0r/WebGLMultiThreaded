@@ -1,8 +1,6 @@
 {
     "files.exclude": {
-        // prefer opening separate vscode
         "Assets/Platform/WebGL/.wasm/": true,
-
         "**/.DS_Store": true,
         "**/.git": true,
         "**/.vs": true,
@@ -61,6 +59,7 @@
     },
     "dotnet.defaultSolution": "WebGLMultiThreaded.sln",
     "files.associations": {
-      "*.jslib": "javascript"
-    },
+        "*.jslib": "javascript",
+        "*.jspre": "javascript"
+    }
 }

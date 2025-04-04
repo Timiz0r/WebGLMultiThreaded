@@ -1,57 +1,10 @@
-import { dotnet } from './_framework/dotnet.js'
+import { dotnet } from "./_framework/dotnet.js";
+import * as Comlink from "https://unpkg.com/comlink/dist/esm/comlink.mjs";
 
-// largely based off of...
-// https://github.com/ilonatommy/reactWithDotnetOnWebWorker/blob/master/react/src/client.js
+const { getAssemblyExports, getConfig } = await dotnet.create();
 
-// the "real" onmessage comes after all of the below dotnet-related awaits, so, until they're done, there is no onmessage
-// in such a case, messages get dropped.
-// it's not necessarily a big deal, but it leaves orphaned requests around.
-//
-// the easiest option is to temporarily respond with a message that allows those requests to be cleared.
-// another hypothetical option would be to move dotnet initialization into onmessage. on the first message,
-// we wait for initialization to finish, blocking that first message (and subsequent other).
-// not sure how i'd implement it off the top of my head, though.
-// dropping events is perhaps preferred, since it'll avoid the queue backing up.
-onmessage = e => {
-    postMessage({ requestId: e.data.requestId, command: "initializing" });
-};
+const config = getConfig();
+const assemblyExports = await getAssemblyExports(config.mainAssemblyName);
+const interop = assemblyExports.OperationInterop;
 
-let assemblyExports = null;
-let startupError = undefined;
-
-try {
-    const { getAssemblyExports, getConfig } = await dotnet.create();
-    const config = getConfig();
-    assemblyExports = await getAssemblyExports(config.mainAssemblyName);
-}
-catch (err) {
-    startupError = err.message;
-}
-
-onmessage = e => {
-    const baseResponse = { requestId: e.data.requestId };
-    function sendResponse(result) {
-        postMessage({ ...baseResponse, command: "response", result });
-    }
-    function sendError(err) {
-        postMessage({ ...baseResponse, command: "error", error: err.message });
-    }
-
-    try {
-        if (!assemblyExports) {
-            throw new Error(startupError || "worker exports not loaded");
-        }
-
-        switch (e.data.command) {
-            case "Foobar":
-                const num = e.data.num;
-                const result = assemblyExports.OperationInterop.Foobar(num);
-                return sendResponse(result)
-            default:
-                throw new Error("Unknown command: " + e.data.command);
-        }
-    }
-    catch (err) {
-        sendError(err)
-    }
-};
+Comlink.expose(interop);

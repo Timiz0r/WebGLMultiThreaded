@@ -12,8 +12,8 @@ public static class OperationRunner
     public static async Awaitable<FoobarResult> FoobarAsync(int num)
     {
         OperationResponse<FoobarResult, string> response = await foobarOperation.Launch(
-            (success, failure, initializing) => OperationRunnerInterop_Foobar(
-                num, success: success, failure: failure, initializing: initializing));
+            (success, failure) => OperationRunnerInterop_Foobar(
+                num, success: success, failure: failure));
 
         if (!response.IsSuccess)
         {
@@ -31,7 +31,7 @@ public static class OperationRunner
 
     [DllImport("__Internal")]
     private static extern int OperationRunnerInterop_Foobar(
-        int num, Action<int, string> success, Action<int, string> failure, Action<int> initializing);
+        int num, Action<int, string> success, Action<int, string> failure);
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
     private static void Initialize()
