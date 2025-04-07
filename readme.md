@@ -1,8 +1,15 @@
 A more verbose walkthrough can be found here: https://kyouha.today/blog/programming/unity-webgl-multithreaded-part2/
 
 There are multiple version of the code:
-* [Original](https://github.com/Timiz0r/WebGLMultiThreaded/tree/original): Implementing multi-threading in WebGL with C# and JS Web Workers
-* [Crossplat](https://github.com/Timiz0r/WebGLMultiThreaded/tree/crossplat): Adding a Standalone version that uses the same C# code to update the same scene.
+* [Original](https://github.com/Timiz0r/WebGLMultiThreaded/tree/original):
+  Implementing multi-threading in WebGL with C# and JS Web Workers  
+  Covered in [this blog post](https://kyouha.today/blog/programming/unity-webgl-multithreaded).
+* [Crossplat](https://github.com/Timiz0r/WebGLMultiThreaded/tree/crossplat):
+  Adding a Standalone version that uses the same C# code to update the same scene.  
+  Covered in [this blog post](https://kyouha.today/blog/programming/unity-webgl-multithreaded-part2).
+* [Comlink](https://github.com/Timiz0r/WebGLMultiThreaded/tree/comlink):
+  Simplifying JS interop with Comlink.  
+  Covered in [this blog post](https://kyouha.today/blog/programming/unity-webgl-multithreaded-part3).
 
 ## Problem
 JS is single-threaded, so long-running, synchronous operations on the main thread will slow down rendering.
@@ -113,59 +120,65 @@ The `.wasm` folder contains the WASM project that hooks up the actual implementa
 * `GameLogic<->GameLogicInterop<->gameLogicInteropWorker.js`
 * `Foobar.Execute<->OperationInterop<->operationRunnerInteropWorker.js`
 
-The interop classes are pretty simple.
+The interop classes are pretty simple, so I won't go into much detail.
+The main limitation is that JS imports and exports must be static.
 
-The Web Workers deal with messages -- serialized to JSON in this demonstration.
-Messages received by the workers will come from Unity
-(via the WebGL `OperationRunner.FoobarAsync` and `SceneGameLogicRunner` implementations)
-and trigger whatever behaviors necessary via the interop classes.
-Messages sent out from the workers will be received by Unity, deserialized, and exposed
-(again, via the `OperationRunner.FoobarAsync` and `SceneGameLogicRunner` classes).
+Fundamentally, Web Workers deal with message passing.
+Internally, one handles the `message` event to receive messages and calls `postMessage` to send messages.
+Externally, one calls `Worker.postMessage` to send messages to the worker
+and handles the `message` event to receive messages from it.
 
-##### Web Worker receives Foobar operation request
-When the `command="Foobar"` message is received (from Unity-side `OperationRunnerInterop.jslib`),
-we simply invoke `OperationRunner.Foobar`.
+Furthermore, in practice, "manually" implementing Web Workers is an exercise in RPC,
+and both the code instantiating with worker and the caller itself need to speak the same language.
+For instance, the schema of a message might have a `kind` property, as well as a `data` property specific to `kind`.
+Or maybe just a `payload` property serialized to and from `protobuf`.
 
-`OperationRunner` exports the `Foobar` function,
-which translates the call to the real `Foobar.Execute` method.
-Additionally, we must serialize the `FoobarResult` -- to JSON in this case.
+Instead, we can use [Comlink](https://github.com/GoogleChromeLabs/comlink)!
+It basically uses the `Proxy` class to proxy `get`s and `apply`s into `postMessage`s,
+and turn messages into the corresponding `get`s and `apply`s in the worker itself.
 
-We take this JSON string return value and send a response message out.
-This response message gets picked up Unity-side, as described [above](#unity-invoking-foobar-operation).
+`operationRunnerInteropWorker.js` is pretty simple, since we only need to `Comlink.expose` what we get from .NET.
 
-##### Web Worker game logic update request
-When the `command="update"` message is received (from `GameLogicInterop.jslib`),
-we simply invoke `GameLogicInterop.Update`.
+`gameLogicInteropWorker.js` is slightly more complicated.
+First, we need to expose a `StateChanged` function so that `GameLogicInterop` can `JSImport` it.
+Additionally, `Comlink` is more meant for proxying calls to a Web Worker (or alike), but it's not so great with events.
+Luckily, `Comlink` proxies `set`s (in addition to `get`s, `apply`s, and probably others),
+so all we need to do is call a worker later on with `worker.subscriber = ...`, and we can use that value here
+for passing events back to whatever instantiated the worker.
 
-`GameLogicInterop` exports the `Update` function,
-which translates the call to the real `GameLogic.Update` method.
-
-Additionally, `GameLogicInterop` imports a `StateChanged` function that is defined in `gameLogicInteropWorker.js`.
-When `GameLogic.StateChanged` triggers, `GameLogicInterop` forwards it to this JS function, performing serialization.
-
-The JS-side `StateChanged` function will then send out a `stateChanged` message, which gets picked up Unity-side,
-as described [above](#unity-triggering-gamelogic-update).
+Finally, note the `postMessage("_init");`.
+Because our worker script is asynchronous, the worker isn't immediately ready to start accepting messages
+and will drop them.
+This is especially a problem for `gameLogicInteropWorker.js`, who will be receiving a `worker.subscriber = ...` message.
+By sending this special `_init` message, the code instantiating the worker
+can wait for this event before performing any additional initialization.
 
 #### WebGL OperationRunner.FoobarAsync
 A component such as `FoobarOperation` will call `OperationRunnerInterop.jslib`'s `OperationRunnerInterop_Foobar`
-(and do initialization beforehand), which will send a message to the Web Worker.
+(and do initialization beforehand), which will call the Web Worker.
 Eventually, when the worker respond with a message containing the result, we'll process it and update some game objects.
 
 ##### Hooking up Web Worker request and response to Awaitable
-When working with Web Workers, all we do is send messages and hope we get something back in return.
-To make this easier, the we've created the `OperationRequestBuilder` abstraction.
+When working with Web Workers, all we do in practice is send messages and hope we get something back in return.
+Comlink *does* simplify this by having calls (and gets) be implemented as async-awaitable `Promise`s.
+Unfortunately, `Unity<->JS` interop doesn't support promises, so we have to use callbacks.
+Furthermore, these callbacks in C# need to be implemented as static methods,
+so we can't use closures to expose a callback per request and instead need to add a concept of a request id
+to correlate calls to their return values.
+To make all this easier, the we've created the `OperationRequestBuilder` abstraction.
 
 This requires certain conventions be met.
 1. The call that begins the request chain (`OperationRunnerInterop_Foobar` in this case)
-will take `success` and `failure` callbacks, and it will return some request id --
-used to later correlate the response back to the initial request.
+   will take `success` and `failure` callbacks, and it will return some request id --
+   used to later correlate the response back to the initial request.
 2. `success` and `failure` accept the request id and some string value. 
    The string value is defined by the operation and can be anything: JSON, a normal string, a numeric value.
 
-`OperationRequestBuilder` contains the implementation of `success` and `failure`.
-They get passed to the caller of `Launch`, and the caller need simply pipe them through to whatever starts the request
-(`OperationRunnerInterop_Foobar`).
-When a request chain is started, `OperationRequestBuilder` keeps a mapping of request id to `AwaitableCompletionSource`.
+`OperationRequestBuilder` contains the implementation of `success` and `failure`,
+which accept an `int` request id and `string` data.
+They get passed to the caller of `Launch`, and the caller need simply pass them through to whatever starts the request
+(`OperationRunnerInterop_Foobar`), which returns the request id.
+When a call is initiated, `OperationRequestBuilder` keeps a mapping of request id to `AwaitableCompletionSource`.
 When `OperationRequestBuilder` gets a response, it finds the corresponding `AwaitableCompletionSource` and completes it.
 Since `OperationRequestBuilder` is initialized with callbacks to deserialize results and errors,
 it uses these to provide the right result to `AwaitableCompletionSource`.
@@ -194,7 +207,7 @@ Also, non-AOT WASM builds are very quick.
 
 
 #### WebGL Debugging
-Since play mode isn't a thing, so neither is debugging (in the modern sense).
+Since WebGL play mode isn't a thing, neither is debugging (in the modern sense).
 Debugging is done via console logging.
 
 Unity-side, debugging requires lots of console logging and rebuilds that take minutes even for small projects.
@@ -209,28 +222,34 @@ Though, to be fair, if crossplat is implemented well, then play mode or standalo
 The main part where debugging in WebGL is needed is getting the initial interop stuff hooked up.
 
 ### Plumbing
-The end goal is `Game logic/long-running operations <-> Unity`
-(the WASM interop parts are technically shims, but they're luckily very light),
+The end goal is `Game logic/long-running operations <-> Unity`,
 but, in between these two, we have `WASM <-> Web Worker <-> jslib`.
-The WASM interop part is pretty light, so it's not much of a problem.
-The real complexity is in `Web Worker <-> jslib`, where all the message passing logic needs to be done.
-And there's the matter of serialization.
 
 Once again, with .NET WASM multi-threading, the Web Worker part should go away,
 removing the vast majority of the complexity, leaving fairly simple WASM and jslib shims.
 The serialization part would remain, though.
 
-As implemented in the event-like demonstration, if using a single, weakly-typed event,
-adding new events luckily doesn't require changing any of these shims.
-If going with separate events, they all need additional changes, though.
+The WASM interop part is pretty light, so it's not much of a problem.
 
-As implemented in the call-like demonstration, adding new operations requires changes in all the other shims.
+`Web Worker <-> jslib` used to be complex (see [original](https://github.com/Timiz0r/WebGLMultiThreaded/tree/original)),
+but Comlink has vastly simplified this.
 
-In both cases, the changes aren't complicated, but it's obnoxious and error-prone to have so many.
-Combined with difficulty in testing/debugging, potential pain!
+As implemented in the event-like demonstration, additional events would require changes to:
+* WASM
+* Web Worker
+* jslib
+* C# code that interfaces with jslib
+
+As implemented in the call-like demonstration, adding new operations requires changes to:
+* WASM
+* jslib
+* C# code that interfaces with jslib
+
+In both cases, the changes aren't complicated, but they are prone to copy-paste errors.
+There are the difficulties in debugging/automated testing the platform, as well.
 
 ## To do
-I'd like to use Roslyn to help codegen all the jslib/WASM/Web Worker stuff/Unity-side P/Invoke code.
+I'd like to use Roslyn to help codegen all of the plumbing mentioned above.
 I've used Roslyn in Unity in the past for my localization system, so it shouldn't be *overly* hard to get started.
 Of course, getting it working is another matter!
 
@@ -243,9 +262,7 @@ For this demonstration project, the Web Workers and jslib files need to be exten
 For their project, this necessity goes away.
 Of course, I've only done it that way for simplicity, but their solution is quite nice!
 
-Regarding the above RPC solution, it's also worth mentioning that,
-[once .NET WASM multi-threading capability is fully supported](#a-note-on-multi-threaded-net-wasm),
-there will be no need to for that solution (if using C# is okay), nor the Web Worker part of this solution.
+Though, in light of me discovering Comlink, I do favor the Roslyn-based codegen approach for the crossplat scenario.
 
 ## Other handy references
 * Type mappings from .NET to WASM: https://learn.microsoft.com/en-us/aspnet/core/client-side/dotnet-interop/?view=aspnetcore-9.0#type-mappings
